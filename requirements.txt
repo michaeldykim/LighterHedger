@@ -1,0 +1,3 @@
+lighter-sdk @ git+https://github.com/elliottech/lighter-python.git@a38b6405f362fc14a562fe7a97df03f3ee756bc1
+aiohttp>=3.10,<4
+python-dotenv>=1.0,<2
