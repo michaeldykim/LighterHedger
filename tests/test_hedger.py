@@ -128,13 +128,13 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
                 telegram.handle({"message": {"chat": {"id": 55, "type": "private"},
                                              "from": {"id": 55}, "text": "status"}})
                 message = self.state.data["outbox"][-1]
-                self.assertIn(f"Current mark price: ${D(mark):,.2f}", message)
+                self.assertIn(f"Mark price: ${D(mark):,.2f}", message)
                 self.assertIn(distance, message)
                 self.assertIn("last poll", message)
         self.exchange.create.assert_not_called()
 
     async def test_status_before_first_quote_and_after_failed_read(self):
-        self.assertIn("Current mark price: unavailable", self.engine.summary())
+        self.assertIn("Mark price: unavailable", self.engine.summary())
         self.engine.live = False
         self.snapshot["read_at"] = time.monotonic() - 120
         await self.engine.tick()

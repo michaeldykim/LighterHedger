@@ -34,7 +34,7 @@ class Engine:
         log.warning("Remote stop latched; existing exchange orders remain live")
 
     def summary(self):
-        price_status = "Current mark price: unavailable | distance to strike: unavailable\n"
+        price_status = "Mark price: unavailable | Distance to strike: unavailable\n"
         if self.last_mark is not None:
             distance = self.last_mark - self.config.strike
             percentage = distance / self.config.strike * 100
@@ -42,8 +42,8 @@ class Engine:
             age = max(0, int(time.monotonic() - self.last_mark_read_at))
             sign = "+" if distance >= 0 else "-"
             price_status = (
-                f"Current mark price: ${self.last_mark:,.{precision}f} (last poll {age}s ago)\n"
-                f"Distance to strike (price - strike): {sign}${abs(distance):,.{precision}f} "
+                f"Mark price: ${self.last_mark:,.{precision}f} (last poll {age}s ago)\n"
+                f"Distance to strike: {sign}${abs(distance):,.{precision}f} "
                 f"({percentage:+.2f}%)\n"
             )
         return (f"{self.config.symbol} | strike {self.config.strike} | quantity {self.config.quantity}\n"
