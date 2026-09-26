@@ -106,7 +106,7 @@ async def run(args):
                 tasks = [asyncio.create_task(telegram.poll()), asyncio.create_task(telegram.deliver())]
                 state.event(f"Started {'LIVE MAINNET' if args.live else 'READ ONLY'} {args.symbol}. "
                             f"Quantity {args.quantity}; buy {buy.trigger}; sell {sell.trigger}; "
-                            f"slippage {args.slippage_pct}%. /stop disables new orders only.")
+                            f"slippage {args.slippage_pct}%. stop disables new orders only.")
                 while not shutdown.is_set():
                     try:
                         await engine.tick()

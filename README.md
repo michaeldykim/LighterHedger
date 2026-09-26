@@ -43,7 +43,7 @@ Fill in `.env` locally:
 - `TELEGRAM_CHAT_ID`: your positive numeric **private chat** ID.
 
 For Telegram, create the bot, set its token in `.env`, open a private chat with it,
-and send `/start`. Discover the chat ID without putting the token into a browser URL:
+and send `start`. Discover the chat ID without putting the token into a browser URL:
 
 ```sh
 .venv/bin/python -m hedger.telegram_setup
@@ -91,12 +91,17 @@ independent simultaneous strategies.
 
 ## Alerts and shutoff
 
-- `/status`: show configuration, latest polled mark price and quote age, distance to
+Send `status`, `stop`, or `help` in Telegram.
+While running continuously, the bot also sends a status message every 15 minutes,
+including when stopped or paused. The first automatic status is 15 minutes after
+startup; restarting resets the timer. Delivery failures are queued for retry.
+
+- `status`: show configuration, latest polled mark price and quote age, distance to
   strike in dollars and percent, read-only/live mode, stop/pause flags and latest status.
   Distance is mark price minus strike; the percentage is relative to strike.
-- `/stop`: durably disable **new orders only**. It does not cancel pending orders or
+- `stop`: durably disable **new orders only**. It does not cancel pending orders or
   close the position. Monitoring and fill alerts continue while the process runs.
-- `/help`: describe commands. `/start` does not resume trading.
+- `help`: describe commands. `start` does not resume trading.
 
 Stop is effective when the local bot receives the command. An order already being
 submitted may still reach Lighter. Wait for the STOPPED acknowledgment; existing
@@ -136,7 +141,7 @@ ID, configuration, stop/conflict flags, Telegram cursor and pending alerts, not 
   and resolve the recorded intent locally before continuing. This version deliberately
   has no "forget pending order and retry" shortcut; `--resume` does not bypass that guard.
 - Restart with the same parameters. Changing saved configuration is rejected.
-- `/stop`, Ctrl+C and SIGTERM persist a stop flag. After inspecting the position and
+- `stop`, Ctrl+C and SIGTERM persist a stop flag. After inspecting the position and
   resolving any conflicts, restart locally with the same parameters plus `--live --resume`.
   That clears the stop/conflict latch but still reconciles any tracked order first.
 - A forced crash preserves the prior stop flag and intent. Starting again without a

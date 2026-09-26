@@ -4,6 +4,7 @@ import logging
 import time
 
 log = logging.getLogger(__name__)
+STATUS_INTERVAL_SECONDS = 15 * 60
 
 
 class Telegram:
@@ -38,12 +39,13 @@ class Telegram:
             return
         command = message.get("text", "").strip().split(maxsplit=1)
         command = command[0].split("@")[0].lower() if command else ""
-        if command == "/stop":
+        if command == "stop":
             self.engine.stop()
-        elif command == "/status":
+        elif command == "status":
             self.state.event(self.engine.summary())
-        elif command in {"/start", "/help"}:
-            self.state.event("/status reports state. /stop persistently disables new orders. "
+        elif command in {"start", "help"}:
+            self.state.event("status reports state. stop persistently disables new orders. "
+                             "Status is sent every 15 minutes. "
                              "Existing orders can still execute. Resume is local only.")
 
     async def poll(self):
@@ -74,8 +76,12 @@ class Telegram:
                 await asyncio.sleep(5)
 
     async def deliver(self):
+        next_status = time.monotonic() + STATUS_INTERVAL_SECONDS
         while True:
             try:
+                if time.monotonic() >= next_status:
+                    self.state.event(self.engine.summary())
+                    next_status = time.monotonic() + STATUS_INTERVAL_SECONDS
                 outbox = self.state.data["outbox"]
                 if outbox:
                     await self.call("sendMessage", {"chat_id": self.chat_id, "text": outbox[0][:4000]})

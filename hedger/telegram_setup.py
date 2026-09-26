@@ -25,7 +25,7 @@ async def main():
            if u.get("message", {}).get("chat", {}).get("type") == "private"
            and u["message"].get("from", {}).get("id") == u["message"]["chat"]["id"]}
     if not ids:
-        print("Send /start to your bot in Telegram, then run this command again.")
+        print("Send start to your bot in Telegram, then run this command again.")
     else:
         for chat_id in sorted(ids):
             print(f"Private chat ID: {chat_id}")

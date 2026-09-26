@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 from hedger.engine import Engine
 from hedger.exchange import Exchange
@@ -126,7 +126,7 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
                 self.snapshot["mark"] = D(mark)
                 await self.engine.tick()
                 telegram.handle({"message": {"chat": {"id": 55, "type": "private"},
-                                             "from": {"id": 55}, "text": "/status"}})
+                                             "from": {"id": 55}, "text": "status"}})
                 message = self.state.data["outbox"][-1]
                 self.assertIn(f"Current mark price: ${D(mark):,.2f}", message)
                 self.assertIn(distance, message)
@@ -276,16 +276,53 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         telegram = Telegram(None, "unused", 55, self.state, self.engine)
         for chat, sender, kind in [(56, 56, "private"), (55, 56, "private"), (55, 55, "group")]:
             telegram.handle({"message": {"chat": {"id": chat, "type": kind},
-                                         "from": {"id": sender}, "text": "/stop"}})
+                                         "from": {"id": sender}, "text": "stop"}})
             self.assertFalse(self.state.data["stopped"])
         telegram.handle({"message": {"chat": {"id": 55, "type": "private"},
-                                     "from": {"id": 55}, "text": "/stop"}})
+                                     "from": {"id": 55}, "text": "stop"}})
         self.assertTrue(self.state.data["stopped"])
+
+    async def test_telegram_plain_commands(self):
+        telegram = Telegram(None, "unused", 55, self.state, self.engine)
+        def send(text, sender=55):
+            telegram.handle({"message": {"chat": {"id": 55, "type": "private"},
+                                         "from": {"id": sender}, "text": text}})
+        send("stop", sender=56)
+        self.assertFalse(self.state.data["stopped"])
+        for command in ["status", " STATUS ", "status@hedger"]:
+            send(command)
+            self.assertEqual(self.state.data["outbox"][-1], self.engine.summary())
+        for command in ["help", "start"]:
+            send(command)
+            self.assertIn("every 15 minutes", self.state.data["outbox"][-1])
+        send("stop")
+        self.assertTrue(self.state.data["stopped"])
+
+    async def test_periodic_status_every_fifteen_minutes_while_stopped(self):
+        telegram = Telegram(None, "unused", 55, self.state, self.engine)
+        self.state.data["stopped"] = True
+        now = 0
+        sent = []
+        async def sleep(seconds):
+            nonlocal now
+            now += 1
+            if now > 1800:
+                raise asyncio.CancelledError
+        async def call(method, payload):
+            sent.append((now, method, payload["text"]))
+        telegram.call = call
+        with patch("hedger.telegram.time.monotonic", side_effect=lambda: now), \
+                patch("hedger.telegram.asyncio.sleep", side_effect=sleep):
+            with self.assertRaises(asyncio.CancelledError):
+                await telegram.deliver()
+        self.assertEqual([entry[0] for entry in sent], [900, 1800])
+        self.assertTrue(all(method == "sendMessage" and "Stopped: True" in text
+                            for _, method, text in sent))
 
     async def test_queued_stop_processed_before_remote_ready(self):
         telegram = Telegram(None, "unused", 55, self.state, self.engine)
         update = {"update_id": 7, "message": {"chat": {"id": 55, "type": "private"},
-                                              "from": {"id": 55}, "text": "/stop"}}
+                                              "from": {"id": 55}, "text": "stop"}}
         calls = 0
         async def call(method, payload):
             nonlocal calls
