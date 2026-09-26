@@ -91,7 +91,9 @@ independent simultaneous strategies.
 
 ## Alerts and shutoff
 
-- `/status`: show configuration, read-only/live mode, stop/pause flags and latest status.
+- `/status`: show configuration, latest polled mark price and quote age, distance to
+  strike in dollars and percent, read-only/live mode, stop/pause flags and latest status.
+  Distance is mark price minus strike; the percentage is relative to strike.
 - `/stop`: durably disable **new orders only**. It does not cancel pending orders or
   close the position. Monitoring and fill alerts continue while the process runs.
 - `/help`: describe commands. `/start` does not resume trading.

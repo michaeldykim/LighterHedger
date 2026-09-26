@@ -116,6 +116,33 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.exchange.create.call_count, 3)
         self.assertEqual(sum(e.startswith("FILL") for e in self.state.data["outbox"]), 2)
 
+    async def test_telegram_status_reports_price_and_signed_strike_distance(self):
+        self.state.data["stopped"] = True
+        telegram = Telegram(None, "unused", 55, self.state, self.engine)
+        for mark, distance in [("101000", "+$1,000.00 (+1.00%)"),
+                               ("99000", "-$1,000.00 (-1.00%)"),
+                               ("100000", "+$0.00 (+0.00%)")]:
+            with self.subTest(mark=mark):
+                self.snapshot["mark"] = D(mark)
+                await self.engine.tick()
+                telegram.handle({"message": {"chat": {"id": 55, "type": "private"},
+                                             "from": {"id": 55}, "text": "/status"}})
+                message = self.state.data["outbox"][-1]
+                self.assertIn(f"Current mark price: ${D(mark):,.2f}", message)
+                self.assertIn(distance, message)
+                self.assertIn("last poll", message)
+        self.exchange.create.assert_not_called()
+
+    async def test_status_before_first_quote_and_after_failed_read(self):
+        self.assertIn("Current mark price: unavailable", self.engine.summary())
+        self.engine.live = False
+        self.snapshot["read_at"] = time.monotonic() - 120
+        await self.engine.tick()
+        self.exchange.snapshot.side_effect = None
+        self.exchange.snapshot.return_value = None
+        await self.engine.tick()
+        self.assertIn("$100,000.00 (last poll 120s ago)", self.engine.summary())
+
     async def test_adopt_manual_order_without_submission(self):
         self.snapshot["orders"] = [order()]
         await self.engine.tick()
