@@ -1,7 +1,7 @@
 """Shared periodic notification generation, independent of delivery."""
 import asyncio
 
-STATUS_INTERVAL_SECONDS = 15 * 60
+STATUS_INTERVAL_SECONDS = 5 * 60
 
 
 async def periodic_status(state, engine):

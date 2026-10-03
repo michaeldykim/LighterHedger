@@ -50,7 +50,7 @@ class NotificationsTests(unittest.IsolatedAsyncioTestCase):
                 side_effect=[None, None, asyncio.CancelledError])) as sleep:
             with self.assertRaises(asyncio.CancelledError):
                 await periodic_status(self.state, engine)
-        self.assertEqual([c.args[0] for c in sleep.call_args_list], [900, 900, 900])
+        self.assertEqual([c.args[0] for c in sleep.call_args_list], [300, 300, 300])
         self.assertEqual(self.state.data['outbox'], ['Stopped: True'] * 2)
         self.assertEqual(self.state.data['discord_outbox'], self.state.data['outbox'])
 

@@ -103,7 +103,7 @@ To mirror new Telegram notifications into a private Discord server text channel:
 The webhook URL is a secret: do not commit, share, or log it. No Discord bot or
 additional dependency is needed. Leave the setting empty to use Telegram only.
 
-Discord receives startup, order, fill, warning, and 15-minute status messages generated
+Discord receives startup, order, fill, warning, and 5-minute status messages generated
 while enabled. Alerts already queued before enabling Discord remain Telegram-only.
 Each destination has its own durable queue; an outage in either does not block the
 other or trading. Discord rate-limit responses delay only Discord delivery.
@@ -120,8 +120,8 @@ notifications; use continuous read-only monitoring to check delivery without pla
 ## Alerts and shutoff
 
 Telegram is send-only: startup, order, fill, and warning alerts are sent immediately.
-While running continuously, the bot also sends a status message every 15 minutes,
-including when stopped or paused. The first automatic status is 15 minutes after
+While running continuously, the bot also sends a status message every 5 minutes,
+including when stopped or paused. The first automatic status is 5 minutes after
 startup; restarting resets the timer.
 
 Status includes configuration, latest polled mark price and quote age, distance to
