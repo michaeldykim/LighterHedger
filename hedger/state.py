@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 class State:
-    def __init__(self, path, identity):
+    def __init__(self, path, identity, *, allow_strike_change=False):
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.lock = open(str(path) + ".lock", "a")
@@ -23,11 +23,21 @@ class State:
         row = self.db.execute("SELECT body FROM state WHERE id=1").fetchone()
         self.data = json.loads(row[0]) if row else {
             "identity": identity, "watch": None, "stopped": False,
-            "paused": None, "established": False, "outbox": [], "telegram_offset": 0,
+            "paused": None, "established": False, "outbox": [],
         }
-        if self.data["identity"] != identity:
+        saved = self.data["identity"]
+        pending = self.data.get("strike_change")
+        changed = {key for key in saved.keys() | identity.keys() if saved.get(key) != identity.get(key)}
+        if pending and (not allow_strike_change or pending["identity"] != identity):
             self.close()
-            raise ValueError("Saved configuration differs. Use the original parameters; do not discard unresolved state.")
+            raise ValueError("A strike change is pending. Restart with its requested strike and --live --resume")
+        if changed and (changed != {"strike"} or not allow_strike_change):
+            self.close()
+            raise ValueError("Saved configuration differs. Only strike changes are supported with --live --resume; "
+                             "keep all other parameters unchanged and preserve saved state.")
+        if changed and not pending:
+            self.data["strike_change"] = {"identity": dict(identity), "cancel_requested": False}
+        self.data.pop("telegram_offset", None)
         self.save()
 
     def save(self):

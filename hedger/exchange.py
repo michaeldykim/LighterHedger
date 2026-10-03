@@ -1,4 +1,4 @@
-"""Read-only REST reconciliation plus the pinned official SDK for signing."""
+"""REST reconciliation plus the pinned official SDK for order submission and cancellation."""
 import asyncio
 import time
 
@@ -117,6 +117,15 @@ class Exchange:
                      int(rows[0]["owner_account_index"]) != self.account):
             raise Conflict("Order lookup returned the wrong market/account")
         return rows[0] if rows else None
+
+    async def cancel(self, order_index):
+        # Acceptance is not confirmation of cancellation; history must settle first.
+        async with asyncio.timeout(20):
+            _, response, error = await self.signer.cancel_order(
+                market_index=self.market.id, order_index=order_index,
+            )
+        if error or response is None or response.code != 200:
+            raise RuntimeError("Order cancellation was not confirmed; reconciliation required")
 
     async def create(self, spec, client_id):
         # No retry here: a timeout is an unknown outcome, not proof of rejection.

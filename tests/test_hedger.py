@@ -88,7 +88,7 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         self.exchange = AsyncMock()
         self.exchange.snapshot.side_effect = lambda: copy.deepcopy(self.snapshot)
         self.exchange.lookup.return_value = None
-        self.engine = Engine(CONFIG, MARKET, self.state, self.exchange, lambda: True, live=True)
+        self.engine = Engine(CONFIG, MARKET, self.state, self.exchange, live=True)
 
     async def asyncTearDown(self):
         self.state.close()
@@ -118,16 +118,13 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_telegram_status_reports_price_and_signed_strike_distance(self):
         self.state.data["stopped"] = True
-        telegram = Telegram(None, "unused", 55, self.state, self.engine)
         for mark, distance in [("101000", "+$1,000.00 (+1.00%)"),
                                ("99000", "-$1,000.00 (-1.00%)"),
                                ("100000", "+$0.00 (+0.00%)")]:
             with self.subTest(mark=mark):
                 self.snapshot["mark"] = D(mark)
                 await self.engine.tick()
-                telegram.handle({"message": {"chat": {"id": 55, "type": "private"},
-                                             "from": {"id": 55}, "text": "status"}})
-                message = self.state.data["outbox"][-1]
+                message = self.engine.summary()
                 self.assertIn(f"Mark price: ${D(mark):,.2f}", message)
                 self.assertIn(distance, message)
                 self.assertIn("last poll", message)
@@ -231,11 +228,6 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         self.exchange.create.assert_not_called()
         self.assertTrue(any(e.startswith("FILL") for e in self.state.data["outbox"]))
 
-    async def test_remote_unavailable_blocks_submission(self):
-        self.engine.can_submit = lambda: False
-        await self.engine.tick()
-        self.exchange.create.assert_not_called()
-
     async def test_read_only_never_submits(self):
         self.engine.live = False
         await self.engine.tick()
@@ -272,32 +264,6 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
             State(self.path, {"different": True})
         self.state = State(self.path, {"test": True})
 
-    async def test_telegram_auth_and_durable_stop(self):
-        telegram = Telegram(None, "unused", 55, self.state, self.engine)
-        for chat, sender, kind in [(56, 56, "private"), (55, 56, "private"), (55, 55, "group")]:
-            telegram.handle({"message": {"chat": {"id": chat, "type": kind},
-                                         "from": {"id": sender}, "text": "stop"}})
-            self.assertFalse(self.state.data["stopped"])
-        telegram.handle({"message": {"chat": {"id": 55, "type": "private"},
-                                     "from": {"id": 55}, "text": "stop"}})
-        self.assertTrue(self.state.data["stopped"])
-
-    async def test_telegram_plain_commands(self):
-        telegram = Telegram(None, "unused", 55, self.state, self.engine)
-        def send(text, sender=55):
-            telegram.handle({"message": {"chat": {"id": 55, "type": "private"},
-                                         "from": {"id": sender}, "text": text}})
-        send("stop", sender=56)
-        self.assertFalse(self.state.data["stopped"])
-        for command in ["status", " STATUS ", "status@hedger"]:
-            send(command)
-            self.assertEqual(self.state.data["outbox"][-1], self.engine.summary())
-        for command in ["help", "start"]:
-            send(command)
-            self.assertIn("every 15 minutes", self.state.data["outbox"][-1])
-        send("stop")
-        self.assertTrue(self.state.data["stopped"])
-
     async def test_periodic_status_every_fifteen_minutes_while_stopped(self):
         telegram = Telegram(None, "unused", 55, self.state, self.engine)
         self.state.data["stopped"] = True
@@ -319,26 +285,74 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(method == "sendMessage" and "Stopped: True" in text
                             for _, method, text in sent))
 
-    async def test_queued_stop_processed_before_remote_ready(self):
+    async def test_delivery_failure_retries_without_blocking_trading(self):
         telegram = Telegram(None, "unused", 55, self.state, self.engine)
-        update = {"update_id": 7, "message": {"chat": {"id": 55, "type": "private"},
-                                              "from": {"id": 55}, "text": "stop"}}
-        calls = 0
+        self.state.event("Started LIVE MAINNET")
+        attempts = []
+        sent = []
+
         async def call(method, payload):
-            nonlocal calls
-            calls += 1
-            if calls == 1:
-                self.assertFalse(telegram.healthy())
-                return [update]
-            if calls == 2:
-                self.assertTrue(self.state.data["stopped"])
-                self.assertFalse(telegram.healthy())
-                return []
-            raise asyncio.CancelledError
+            self.assertEqual(method, "sendMessage")
+            attempts.append(payload["text"])
+            if len(attempts) == 1:
+                raise RuntimeError("offline")
+            sent.append(payload["text"])
+
+        async def sleep(seconds):
+            if seconds == 5:
+                # A failed send leaves the message durable while trading proceeds.
+                self.state.close()
+                self.state = State(self.path, {"test": True})
+                self.engine.state = telegram.state = self.state
+                self.assertEqual(self.state.data["outbox"], ["Started LIVE MAINNET"])
+                await self.engine.tick()
+                self.exchange.create.assert_awaited_once()
+            else:
+                raise asyncio.CancelledError
+
         telegram.call = call
-        with self.assertRaises(asyncio.CancelledError):
-            await telegram.poll()
-        self.assertEqual(self.state.data["telegram_offset"], 8)
+        with patch("hedger.telegram.asyncio.sleep", side_effect=sleep):
+            with self.assertRaises(asyncio.CancelledError):
+                await telegram.deliver()
+        self.assertEqual(attempts[:2], ["Started LIVE MAINNET"] * 2)
+        self.assertEqual(sent[0], "Started LIVE MAINNET")
+        self.assertTrue(sent[1].startswith("SUBMITTED"))
+        self.assertEqual(self.state.data["outbox"], [])
+
+    async def test_periodic_status_retries_after_failure(self):
+        telegram = Telegram(None, "unused", 55, self.state, self.engine)
+        now = 0
+        attempts = []
+
+        async def sleep(seconds):
+            nonlocal now
+            now += seconds
+            if now > 905:
+                raise asyncio.CancelledError
+
+        async def call(method, payload):
+            attempts.append((now, method, payload["text"]))
+            if len(attempts) == 1:
+                raise RuntimeError("offline")
+
+        telegram.call = call
+        with patch("hedger.telegram.time.monotonic", side_effect=lambda: now), \
+                patch("hedger.telegram.asyncio.sleep", side_effect=sleep):
+            with self.assertRaises(asyncio.CancelledError):
+                await telegram.deliver()
+        self.assertEqual([entry[0] for entry in attempts], [900, 905])
+        self.assertEqual(attempts[0][1:], attempts[1][1:])
+        self.assertEqual(self.state.data["outbox"], [])
+
+    async def test_legacy_state_preserves_stops_orders_and_pending_alerts(self):
+        self.state.data.update(telegram_offset=8, stopped=True, paused="review")
+        self.state.event("Pending alert")
+        self.state.close()
+        self.state = State(self.path, {"test": True})
+        self.assertNotIn("telegram_offset", self.state.data)
+        self.assertTrue(self.state.data["stopped"])
+        self.assertEqual(self.state.data["paused"], "review")
+        self.assertEqual(self.state.data["outbox"], ["Pending alert"])
 
 
 class AdapterTests(unittest.IsolatedAsyncioTestCase):

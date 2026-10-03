@@ -2,15 +2,15 @@ import logging
 import secrets
 import time
 
-from .strategy import ACTIVE, Conflict, Spec, decimal, initial_spec, matches, specs
+from .strategy import ACTIVE, Config, Conflict, Spec, decimal, initial_spec, matches, specs
 
 log = logging.getLogger(__name__)
 
 
 class Engine:
-    def __init__(self, config, market, state, exchange, can_submit, live=False):
+    def __init__(self, config, market, state, exchange, live=False):
         self.config, self.market, self.state = config, market, state
-        self.exchange, self.can_submit, self.live = exchange, can_submit, live
+        self.exchange, self.live = exchange, live
         self.status = "Starting"
         self.last_warning = None
         self.last_mark = None
@@ -29,11 +29,14 @@ class Engine:
 
     def stop(self):
         self.state.data["stopped"] = True
-        self.state.save()  # Persist before acknowledging the remote command.
+        self.state.save()  # Persist the local stop before reporting it.
         self.state.event("STOPPED: no new orders. Existing orders remain live; fill monitoring continues.")
-        log.warning("Remote stop latched; existing exchange orders remain live")
+        log.warning("Local stop latched; existing exchange orders remain live")
 
     def summary(self):
+        change_status = ""
+        if self.state.data.get("strike_change"):
+            change_status = f"Strike change pending: {self.state.data['identity']['strike']} to {self.config.strike}\n"
         price_status = "Mark price: unavailable | Distance to strike: unavailable\n"
         if self.last_mark is not None:
             distance = self.last_mark - self.config.strike
@@ -47,6 +50,7 @@ class Engine:
                 f"({percentage:+.2f}%)\n"
             )
         return (f"{self.config.symbol} | strike {self.config.strike} | quantity {self.config.quantity}\n"
+                f"{change_status}"
                 f"{price_status}"
                 f"Mode: {'LIVE MAINNET' if self.live else 'READ ONLY'}\n"
                 f"Stopped: {self.state.data['stopped']} | paused: {self.state.data['paused'] or 'no'}\n"
@@ -62,7 +66,7 @@ class Engine:
         self.state.data["established"] = True
         self.state.save()
 
-    async def reconcile(self, snapshot):
+    async def reconcile(self, snapshot, *, replacing=False):
         watch = self.state.data["watch"]
         spec = Spec.load(watch["spec"])
         active = snapshot["orders"]
@@ -94,6 +98,8 @@ class Engine:
         others = [o for o in active if int(o["order_index"]) != int(row["order_index"])]
         if others:
             raise Conflict("Additional active orders exist in the strategy market")
+        if replacing and snapshot["position"] not in (decimal(0), -self.config.quantity):
+            raise Conflict("Unexpected position; strike change requires flat or full configured short")
         if row["status"] in ACTIVE:
             if filled:
                 raise Conflict("Partial fill detected; no further orders until locally reviewed")
@@ -101,6 +107,23 @@ class Engine:
             if snapshot["position"] != expected:
                 raise Conflict("Position changed while the tracked order is active")
             self.status = f"Monitoring order {row['order_index']}: {spec.label} at {spec.trigger}"
+            if replacing:
+                change = self.state.data["strike_change"]
+                if change["cancel_requested"]:
+                    self.status = "Strike change waiting for cancellation or fill confirmation; no replacement sent"
+                elif (found and self.live and not self.state.data["stopped"]
+                      and not self.state.data["paused"] and time.monotonic() - snapshot["read_at"] <= 15):
+                    change["cancel_requested"] = True
+                    self.state.save()  # Durable before cancellation, including across a timeout/crash.
+                    try:
+                        await self.exchange.cancel(int(row["order_index"]))
+                    except Exception:
+                        self.warn("Cancellation outcome uncertain; waiting for old order history before strike change. "
+                                  "If it remains active, cancel that order manually")
+                        return False
+                    self.state.event(f"CANCEL REQUESTED {self.config.symbol}: order {row['order_index']} "
+                                     f"for strike change to {self.config.strike}; awaiting confirmation")
+                    self.status = "Strike change waiting for cancellation or fill confirmation; no replacement sent"
             return False
         if row["status"] == "filled" and filled == spec.quantity:
             expected = -spec.quantity if spec.is_ask else decimal(0)
@@ -115,10 +138,55 @@ class Engine:
             self.status = "Full fill reconciled; next trigger will be checked on the next poll"
             return False
         if row["status"].startswith("canceled"):
+            if replacing:
+                if filled:
+                    raise Conflict("Canceled order has fills; strike change requires local review")
+                expected = decimal(0) if spec.is_ask else -spec.quantity
+                if snapshot["position"] != expected:
+                    raise Conflict("Position changed before cancellation was confirmed; review locally")
+                if found:
+                    return False
+                self.state.data["watch"] = None
+                self.state.event(f"CANCELED {self.config.symbol}: order {row['order_index']} with no fills; "
+                                 "checking the new strike on the next poll")
+                return False
             self.state.data["watch"] = None
             # The catch below commits cleared tracking and the pause latch together.
             raise Conflict(f"Tracked order ended as {row['status']} (filled {filled}/{spec.quantity}); review locally")
         raise Conflict("Unrecognized terminal order state")
+
+    async def change_strike(self, snapshot):
+        if self.state.data["watch"]:
+            # Continue reporting old-order fills even if a conflict has paused replacement.
+            await self.reconcile(snapshot, replacing=True)
+            return
+        if self.state.data["stopped"] or self.state.data["paused"] or not self.live:
+            self.status = "Strike change paused; local review and --live --resume required"
+            return
+        if snapshot["position"] not in (decimal(0), -self.config.quantity):
+            raise Conflict("Unexpected position; strike change requires flat or full configured short")
+        orders = snapshot["orders"]
+        if orders:
+            # Only adopt/cancel an exact match for the previous strategy; never cancel unrelated orders.
+            old = self.state.data["identity"]
+            config = Config(old["symbol"], decimal(old["strike"]),
+                            decimal(old["quantity"]), decimal(old["slippage_pct"]))
+            buy, sell = specs(config, self.market)
+            desired = sell if snapshot["position"] == 0 else buy
+            if len(orders) != 1 or not matches(orders[0], desired, self.market.id):
+                raise Conflict("Conflicting active orders; cannot automatically replace the old strike")
+            self.track(desired, row=orders[0])
+            self.state.event(f"Adopted old-strike {self.config.symbol} order {orders[0]['order_index']} for replacement")
+            return
+        if time.monotonic() - snapshot["read_at"] > 15:
+            self.status = "Strike change waiting for a fresh exchange snapshot"
+            return
+        old_strike = self.state.data["identity"]["strike"]
+        change = self.state.data.pop("strike_change")
+        self.state.data["identity"] = change["identity"]
+        self.state.event(f"Strike changed {self.config.symbol}: {old_strike} to {self.config.strike}. "
+                         "Old order resolved; next order checked on the next poll")
+        self.status = "Strike change confirmed; next order checked on the next poll"
 
     async def tick(self):
         snapshot = await self.exchange.snapshot()
@@ -128,6 +196,9 @@ class Engine:
         self.last_mark = snapshot["mark"]
         self.last_mark_read_at = snapshot["read_at"]
         try:
+            if self.state.data.get("strike_change"):
+                await self.change_strike(snapshot)
+                return
             if self.state.data["watch"]:
                 await self.reconcile(snapshot)
                 return
@@ -163,10 +234,10 @@ class Engine:
             if not self.live:
                 log.info("READ ONLY: %s", self.status)
                 return
-            # Telegram stop can run during any awaited read. Recheck immediately before submission.
-            if (self.state.data["stopped"] or self.state.data["paused"] or not self.can_submit()
+            # Recheck local stop/pause flags and snapshot freshness before submission.
+            if (self.state.data["stopped"] or self.state.data["paused"]
                     or time.monotonic() - snapshot["read_at"] > 15):
-                self.status += " | submission disabled or remote control unavailable"
+                self.status += " | submission disabled or snapshot stale"
                 return
             client_id = secrets.randbelow(2**48 - 1) + 1
             self.track(desired, client_id=client_id)  # Durable BEFORE any network write.

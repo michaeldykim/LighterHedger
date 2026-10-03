@@ -21,7 +21,7 @@ def parser():
     p.add_argument("--poll-seconds", type=float, default=10, help="Exchange polling interval, minimum 5")
     p.add_argument("--live", action="store_true", help="Enable real mainnet order submission")
     p.add_argument("--once", action="store_true", help="One read-only reconciliation, then exit")
-    p.add_argument("--resume", action="store_true", help="Clear a saved stop/conflict after local review")
+    p.add_argument("--resume", action="store_true", help="Resume after local review; reconcile and replace an old strike")
     p.add_argument("--env-file", type=Path, default=ROOT / ".env")
     p.add_argument("--markets", action="store_true", help="Show public market precision/limits only; no credentials")
     return p
@@ -67,9 +67,10 @@ async def run(args):
         identity = {"network": MAINNET, "account": account, "symbol": args.symbol,
                     "strike": str(config.strike.normalize()), "quantity": str(config.quantity.normalize()),
                     "slippage_pct": str(config.slippage_pct.normalize()), "telegram_chat": chat}
-        # One strategy per account, to avoid competing Telegram consumers/orders.
+        # One strategy per account, to avoid competing orders.
         suffix = "live" if args.live else "preview"
-        state = State(ROOT / ".state" / f"mainnet-{account}-{suffix}.sqlite3", identity)
+        state = State(ROOT / ".state" / f"mainnet-{account}-{suffix}.sqlite3", identity,
+                      allow_strike_change=args.live and args.resume)
         signer = None
         tasks = []
         try:
@@ -79,13 +80,16 @@ async def run(args):
             if signer.check_client():
                 raise ValueError("Lighter API key validation failed")
             exchange = Exchange(session, signer, account, key_index, market)
-            engine = Engine(config, market, state, exchange, lambda: telegram.healthy(), live=args.live)
+            engine = Engine(config, market, state, exchange, live=args.live)
             telegram = Telegram(session, token, chat, state, engine)
             if args.resume:
                 state.data["stopped"] = False
                 state.data["paused"] = None
                 state.save()
                 state.event("Local resume requested; saved order intent will still be reconciled before any submission")
+                if state.data.get("strike_change"):
+                    state.event(f"Strike change requested: {state.data['identity']['strike']} to {config.strike}. "
+                                "Reconciling the old order before replacement.")
             if args.once:
                 await engine.tick()
                 print(engine.summary())
@@ -94,19 +98,11 @@ async def run(args):
             loop = asyncio.get_running_loop()
             for sig in (signal.SIGINT, signal.SIGTERM):
                 loop.add_signal_handler(sig, shutdown.set)
-            # Preview and live must not poll the same Telegram bot simultaneously.
-            control_lock = open(ROOT / ".state" / f"telegram-{chat}.lock", "a")
-            import fcntl
             try:
-                fcntl.flock(control_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError:
-                control_lock.close()
-                raise ValueError("Another local bot is already using this Telegram chat") from None
-            try:
-                tasks = [asyncio.create_task(telegram.poll()), asyncio.create_task(telegram.deliver())]
+                tasks = [asyncio.create_task(telegram.deliver())]
                 state.event(f"Started {'LIVE MAINNET' if args.live else 'READ ONLY'} {args.symbol}. "
                             f"Quantity {args.quantity}; buy {buy.trigger}; sell {sell.trigger}; "
-                            f"slippage {args.slippage_pct}%. stop disables new orders only.")
+                            f"slippage {args.slippage_pct}%.")
                 while not shutdown.is_set():
                     try:
                         await engine.tick()
@@ -127,7 +123,6 @@ async def run(args):
                 for task in tasks:
                     task.cancel()
                 await asyncio.gather(*tasks, return_exceptions=True)
-                control_lock.close()
         finally:
             if signer is not None:
                 await signer.close()

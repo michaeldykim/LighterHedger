@@ -50,8 +50,8 @@ and send `start`. Discover the chat ID without putting the token into a browser 
 ```
 
 Set the resulting ID in `.env`. Use your own private chat; groups are intentionally
-unsupported. Only messages whose chat ID **and sender ID** match your configured ID
-can control the bot. Do not share the token or run another consumer of this bot's updates.
+unsupported. The setup helper reads a message only to discover your chat ID.
+The running hedger sends notifications only and never reads commands. Do not share the token.
 
 ## Run
 
@@ -72,7 +72,7 @@ not send Telegram messages or place orders):
 .venv/bin/python -m hedger --symbol BTC --strike 100000 --quantity 0.001 --once
 ```
 
-Continuous read-only monitoring and Telegram control: omit `--once`.
+Continuous read-only monitoring and Telegram notifications: omit `--once`.
 To enable **real mainnet trading**, add `--live`:
 
 ```sh
@@ -81,32 +81,33 @@ To enable **real mainnet trading**, add `--live`:
 
 On macOS, optionally prefix the command with `caffeinate -i` to prevent idle sleep.
 The computer and network must remain available to detect fills, place subsequent
-orders and receive Telegram commands. Native orders already on Lighter can execute
+orders and send Telegram notifications. Native orders already on Lighter can execute
 even while the computer is offline.
 
 The bot leaves leverage and margin settings as configured on Lighter. Ensure the
 account has enough collateral for the selected size. This version runs **one market
-per account** and one consumer per Telegram bot; use separate subaccounts/bots for
+per account**; use separate subaccounts for
 independent simultaneous strategies.
 
 ## Alerts and shutoff
 
-Send `status`, `stop`, or `help` in Telegram.
+Telegram is send-only: startup, order, fill, and warning alerts are sent immediately.
 While running continuously, the bot also sends a status message every 15 minutes,
 including when stopped or paused. The first automatic status is 15 minutes after
-startup; restarting resets the timer. Delivery failures are queued for retry.
+startup; restarting resets the timer.
 
-- `status`: show configuration, latest polled mark price and quote age, distance to
-  strike in dollars and percent, read-only/live mode, stop/pause flags and latest status.
-  Distance is mark price minus strike; the percentage is relative to strike.
-- `stop`: durably disable **new orders only**. It does not cancel pending orders or
-  close the position. Monitoring and fill alerts continue while the process runs.
-- `help`: describe commands. `start` does not resume trading.
+Status includes configuration, latest polled mark price and quote age, distance to
+strike in dollars and percent, read-only/live mode, stop/pause flags and latest status.
+Distance is mark price minus strike; the percentage is relative to strike.
 
-Stop is effective when the local bot receives the command. An order already being
-submitted may still reach Lighter. Wait for the STOPPED acknowledgment; existing
-orders can execute afterward. The command cannot reach a sleeping or offline computer.
-New submissions are disabled when Telegram polling fails or its heartbeat goes stale.
+Incoming messages (including `status`, `stop`, and `help`) are not read or acted on.
+Stop the process locally with Ctrl+C or SIGTERM to persistently disable new orders;
+use `--resume` after local review on the next live start. Existing exchange orders
+remain live and can execute after shutdown. Previously saved stop/pause flags remain
+in effect.
+
+Telegram delivery failures do not disable trading. Status updates and immediate alerts
+remain queued locally and retry independently of the trading loop.
 
 Exchange polling defaults to 10 seconds (configurable with `--poll-seconds`, minimum 5).
 After confirming a complete fill and the resulting account position, the opposite
@@ -117,7 +118,8 @@ it may execute immediately, subject to the execution-price bound.
 Alerts report observed cumulative fills, including partial fills. Partial fills,
 cancellations (including slippage/liquidity failures), external position changes and
 conflicting orders pause new submissions for local review. No automatic market-order
-fallback, resizing or cancellation is performed. Alerts persist locally for retry;
+fallback or resizing is performed. Automatic cancellation is limited to the old strategy
+order during an explicitly requested strike change (see below). Alerts persist locally for retry;
 a crash after Telegram accepts a message but before local acknowledgment can duplicate
 that alert.
 
@@ -125,7 +127,7 @@ that alert.
 
 State is stored in `.state/mainnet-<account>-live.sqlite3`; read-only previews have a
 separate state file. Keep these files. They contain the tracked exchange/client order
-ID, configuration, stop/conflict flags, Telegram cursor and pending alerts, not keys.
+ID, configuration, pending strike changes, stop/conflict flags and pending alerts, not keys.
 
 - Matching manually placed orders are adopted only when there is exactly one active
   order in the selected market with matching side, fixed size, trigger, **execution
@@ -140,8 +142,9 @@ ID, configuration, stop/conflict flags, Telegram cursor and pending alerts, not 
 - If submission remains uncertain or the order is absent forever, inspect it on Lighter
   and resolve the recorded intent locally before continuing. This version deliberately
   has no "forget pending order and retry" shortcut; `--resume` does not bypass that guard.
-- Restart with the same parameters. Changing saved configuration is rejected.
-- `stop`, Ctrl+C and SIGTERM persist a stop flag. After inspecting the position and
+- Restart with the same parameters, or change only the strike with `--live --resume`
+  as described below. Changes to other saved parameters are rejected.
+- Ctrl+C and SIGTERM persist a stop flag. After inspecting the position and
   resolving any conflicts, restart locally with the same parameters plus `--live --resume`.
   That clears the stop/conflict latch but still reconciles any tracked order first.
 - A forced crash preserves the prior stop flag and intent. Starting again without a
@@ -152,6 +155,39 @@ cycle, the recorded order and actual confirmed position determine the next leg.
 REST reads are checked twice for consistency, but manual trading concurrently with a
 submission cannot be made atomic with the bot; keep this account/market dedicated.
 
+### Changing the strike on restart
+
+Supply the new `--strike` together with `--live --resume`, leaving the symbol,
+quantity, slippage and other saved settings unchanged. For example:
+
+```sh
+caffeinate -i .venv/bin/python -m hedger --symbol HYPE --strike 95 --quantity 25 --slippage-pct 1 --live --resume
+```
+
+The bot saves a pending request and keeps the previous strike in its journal until
+the old order is resolved. If the old order is still active and unfilled, it requests
+cancellation of that specific order, then waits for confirmed cancellation and a
+consistent position. An already canceled, unfilled order needs no further cancellation.
+Only the tracked order or a single exact match for the previous strategy can be canceled;
+unrelated or conflicting orders require local review.
+
+Partial fills and unexpected positions pause the change. If the old order fills
+completely before cancellation takes effect, the bot reconciles that fill and the
+resulting position before continuing. Missing history or an uncertain cancellation
+never permits a replacement. Cancellation requests are journaled before sending and
+are not automatically repeated after a timeout or crash; if the order remains active,
+cancel that specific order manually and let the bot reconcile it.
+
+After confirming no active orders remain and the position is flat or short exactly the
+configured quantity, the bot saves the new strike. It checks the next order on a later
+poll using the existing strategy rules and cycle state. Cancellation and replacement
+are separate operations, with a gap between them; a replacement whose trigger is already
+crossed may execute immediately. Telegram reports the pending change, cancellation,
+confirmed strike, and subsequent order normally.
+
+If interrupted while a change is pending, restart with the same requested new strike
+and `--live --resume`. A different target is rejected until the pending change is resolved.
+
 ## Verification
 
 ```sh
@@ -160,7 +196,8 @@ submission cannot be made atomic with the bot; keep this account/market dedicate
 
 Tests simulate the repeating cycle, startup rules, manual adoption, partial fills,
 cancellations, delayed position updates, ambiguous submissions across restarts,
-control authentication, persistent stop and exchange argument encoding. Public mainnet
+Telegram delivery retries, persistent stop, strike-change cancellation/reconciliation,
+and exchange argument encoding. Public mainnet
 metadata can be checked with `--markets`. Authenticated order placement and Telegram
 delivery require your locally configured credentials; no live trade is needed to run
 the unit tests.
