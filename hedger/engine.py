@@ -1,16 +1,17 @@
 import logging
-import secrets
-import time
 
+from .ports import ExchangePort, LiveRuntime, Runtime
 from .strategy import ACTIVE, Conflict, Spec, decimal, initial_spec, matches, specs
 
 log = logging.getLogger(__name__)
 
 
 class Engine:
-    def __init__(self, config, market, state, exchange, can_submit, live=False):
+    def __init__(self, config, market, state, exchange: ExchangePort, can_submit,
+                 live=False, *, runtime: Runtime | None = None):
         self.config, self.market, self.state = config, market, state
         self.exchange, self.can_submit, self.live = exchange, can_submit, live
+        self.runtime = runtime if runtime is not None else LiveRuntime()
         self.status = "Starting"
         self.last_warning = None
         self.last_mark = None
@@ -39,7 +40,7 @@ class Engine:
             distance = self.last_mark - self.config.strike
             percentage = distance / self.config.strike * 100
             precision = max(2, self.market.price_decimals)
-            age = max(0, int(time.monotonic() - self.last_mark_read_at))
+            age = max(0, int(self.runtime.monotonic() - self.last_mark_read_at))
             sign = "+" if distance >= 0 else "-"
             price_status = (
                 f"Mark price: ${self.last_mark:,.{precision}f} (last poll {age}s ago)\n"
@@ -57,7 +58,7 @@ class Engine:
             "spec": spec.dump(), "order_index": int(row["order_index"]) if row else None,
             "client_order_index": int(row["client_order_index"]) if row else client_id,
             "lookup_by_client": row is None,
-            "seen_fill": "0", "created_at": time.time(),
+            "seen_fill": "0", "created_at": self.runtime.time(),
         }
         self.state.data["established"] = True
         self.state.save()
@@ -165,10 +166,10 @@ class Engine:
                 return
             # Telegram stop can run during any awaited read. Recheck immediately before submission.
             if (self.state.data["stopped"] or self.state.data["paused"] or not self.can_submit()
-                    or time.monotonic() - snapshot["read_at"] > 15):
+                    or self.runtime.monotonic() - snapshot["read_at"] > 15):
                 self.status += " | submission disabled or remote control unavailable"
                 return
-            client_id = secrets.randbelow(2**48 - 1) + 1
+            client_id = self.runtime.next_client_id()
             self.track(desired, client_id=client_id)  # Durable BEFORE any network write.
             try:
                 await self.exchange.create(desired, client_id)

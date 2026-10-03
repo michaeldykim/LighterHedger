@@ -1,0 +1,22 @@
+{
+  "strategy": {
+    "symbol": "HYPE",
+    "strike": "93",
+    "quantity": "25",
+    "slippage_pct": "1"
+  },
+  "market": {
+    "id": 0,
+    "size_decimals": 2,
+    "price_decimals": 4,
+    "min_quantity": "0",
+    "min_notional": "0"
+  },
+  "account": {
+    "starting_cash": "500",
+    "initial_position": "short",
+    "entry_price": "86.09",
+    "fee_pct": "0"
+  },
+  "data_files": ["simulations/simulation_test/2026-09-30_HYPE.csv.zip"]
+}

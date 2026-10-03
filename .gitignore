@@ -8,3 +8,8 @@ __pycache__/
 *.sqlite3*
 *.lock
 .DS_Store
+sim_results/
+simulations/*/results-*.json
+simulations/*/comparison-*.csv
+simulations/*/actions-*.jsonl
+simulations/*/equity-*.csv
