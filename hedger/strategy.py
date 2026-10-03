@@ -86,8 +86,8 @@ def specs(config, market):
         raise ValueError(f"Quantity must have at most {market.size_decimals} decimal places")
     if config.quantity < market.min_quantity:
         raise ValueError(f"Quantity is below market minimum {market.min_quantity}")
-    buy = market.price(config.strike * D("1.005"), ROUND_CEILING)
-    sell = market.price(config.strike * D("0.9975"), ROUND_FLOOR)
+    buy = market.price(config.strike * D("1.0001"), ROUND_CEILING)
+    sell = market.price(config.strike * D("0.9999"), ROUND_FLOOR)
     slip = config.slippage_pct / 100
     # Round execution bounds inward so the specified cap is never widened.
     buy_cap = market.price(buy * (1 + slip), ROUND_FLOOR)

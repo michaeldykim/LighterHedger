@@ -34,8 +34,8 @@ def order(spec=BUY, index=123, client=0, status="open", filled="0"):
 
 class RulesTests(unittest.TestCase):
     def test_exact_triggers_and_caps(self):
-        self.assertEqual((BUY.trigger, BUY.price), (D("100500"), D("101505")))
-        self.assertEqual((SELL.trigger, SELL.price), (D("99750"), D("98752.5")))
+        self.assertEqual((BUY.trigger, BUY.price), (D("100010"), D("101010.1")))
+        self.assertEqual((SELL.trigger, SELL.price), (D("99990"), D("98990.1")))
         self.assertTrue(BUY.reduce_only)
         self.assertFalse(SELL.reduce_only)
 
@@ -44,8 +44,8 @@ class RulesTests(unittest.TestCase):
             market = Market(1, symbol, 5, decimals, D("0.00001"), D("1"))
             c = Config(symbol, D("123.4567"), D(qty), D("1"))
             b, s = specs(c, market)
-            self.assertGreaterEqual(b.trigger, c.strike * D("1.005"))
-            self.assertLessEqual(s.trigger, c.strike * D("0.9975"))
+            self.assertGreaterEqual(b.trigger, c.strike * D("1.0001"))
+            self.assertLessEqual(s.trigger, c.strike * D("0.9999"))
             self.assertLessEqual(b.price, b.trigger * D("1.01"))
             self.assertGreaterEqual(s.price, s.trigger * D("0.99"))
 
@@ -59,7 +59,7 @@ class RulesTests(unittest.TestCase):
 
     def test_initial_state_rules(self):
         self.assertEqual(initial_spec(CONFIG, MARKET, -CONFIG.quantity, D("100000")), BUY)
-        self.assertEqual(initial_spec(CONFIG, MARKET, D(0), D("100500")), SELL)
+        self.assertEqual(initial_spec(CONFIG, MARKET, D(0), D("100010")), SELL)
         self.assertIsNone(initial_spec(CONFIG, MARKET, D(0), D("99000")))
         for position, mark in [(D("0.001"), D("100000")), (-CONFIG.quantity, D("101000")),
                                (D("-0.0005"), D("100000"))]:
@@ -361,7 +361,7 @@ class AdapterTests(unittest.IsolatedAsyncioTestCase):
         await exchange.create(BUY, 100)
         signer.create_sl_order.assert_awaited_once_with(
             market_index=1, client_order_index=100, base_amount=100,
-            trigger_price=1005000, price=1015050, is_ask=False, reduce_only=True)
+            trigger_price=1000100, price=1010101, is_ask=False, reduce_only=True)
 
     async def test_manual_history_uses_order_id_and_pagination(self):
         exchange = Exchange(None, None, 42, 3, MARKET)

@@ -6,9 +6,9 @@ and **flat**, never intentionally opening a long.
 
 | Account state | Next order |
 | --- | --- |
-| Short the configured quantity | Buy to close at strike × 1.005, reduce-only |
-| Flat after a confirmed buy fill | Sell to open at strike × 0.9975 |
-| Flat at startup, mark at/above buy trigger | Sell to open at strike × 0.9975 |
+| Short the configured quantity | Buy to close at strike × 1.0001, reduce-only |
+| Flat after a confirmed buy fill | Sell to open at strike × 0.9999 |
+| Flat at startup, mark at/above buy trigger | Sell to open at strike × 0.9999 |
 | Flat at startup, mark below buy trigger | Warn and wait for you to establish the initial short |
 | Conflicting position or orders | Warn and pause new submissions |
 
