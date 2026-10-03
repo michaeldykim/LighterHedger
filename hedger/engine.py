@@ -1,16 +1,17 @@
 import logging
-import secrets
-import time
 
+from .ports import ExchangePort, LiveRuntime, Runtime
 from .strategy import ACTIVE, Config, Conflict, Spec, decimal, initial_spec, matches, specs
 
 log = logging.getLogger(__name__)
 
 
 class Engine:
-    def __init__(self, config, market, state, exchange, live=False):
+    def __init__(self, config, market, state, exchange: ExchangePort,
+                 live=False, *, runtime: Runtime | None = None):
         self.config, self.market, self.state = config, market, state
         self.exchange, self.live = exchange, live
+        self.runtime = runtime if runtime is not None else LiveRuntime()
         self.status = "Starting"
         self.last_warning = None
         self.last_mark = None
@@ -42,7 +43,7 @@ class Engine:
             distance = self.last_mark - self.config.strike
             percentage = distance / self.config.strike * 100
             precision = max(2, self.market.price_decimals)
-            age = max(0, int(time.monotonic() - self.last_mark_read_at))
+            age = max(0, int(self.runtime.monotonic() - self.last_mark_read_at))
             sign = "+" if distance >= 0 else "-"
             price_status = (
                 f"Mark price: ${self.last_mark:,.{precision}f} (last poll {age}s ago)\n"
@@ -61,7 +62,7 @@ class Engine:
             "spec": spec.dump(), "order_index": int(row["order_index"]) if row else None,
             "client_order_index": int(row["client_order_index"]) if row else client_id,
             "lookup_by_client": row is None,
-            "seen_fill": "0", "created_at": time.time(),
+            "seen_fill": "0", "created_at": self.runtime.time(),
         }
         self.state.data["established"] = True
         self.state.save()
@@ -112,7 +113,7 @@ class Engine:
                 if change["cancel_requested"]:
                     self.status = "Strike change waiting for cancellation or fill confirmation; no replacement sent"
                 elif (found and self.live and not self.state.data["stopped"]
-                      and not self.state.data["paused"] and time.monotonic() - snapshot["read_at"] <= 15):
+                      and not self.state.data["paused"] and self.runtime.monotonic() - snapshot["read_at"] <= 15):
                     change["cancel_requested"] = True
                     self.state.save()  # Durable before cancellation, including across a timeout/crash.
                     try:
@@ -178,7 +179,7 @@ class Engine:
             self.track(desired, row=orders[0])
             self.state.event(f"Adopted old-strike {self.config.symbol} order {orders[0]['order_index']} for replacement")
             return
-        if time.monotonic() - snapshot["read_at"] > 15:
+        if self.runtime.monotonic() - snapshot["read_at"] > 15:
             self.status = "Strike change waiting for a fresh exchange snapshot"
             return
         old_strike = self.state.data["identity"]["strike"]
@@ -236,10 +237,10 @@ class Engine:
                 return
             # Recheck local stop/pause flags and snapshot freshness before submission.
             if (self.state.data["stopped"] or self.state.data["paused"]
-                    or time.monotonic() - snapshot["read_at"] > 15):
+                    or self.runtime.monotonic() - snapshot["read_at"] > 15):
                 self.status += " | submission disabled or snapshot stale"
                 return
-            client_id = secrets.randbelow(2**48 - 1) + 1
+            client_id = self.runtime.next_client_id()
             self.track(desired, client_id=client_id)  # Durable BEFORE any network write.
             try:
                 await self.exchange.create(desired, client_id)
