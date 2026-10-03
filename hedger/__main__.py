@@ -40,6 +40,8 @@ async def run(args):
     from .engine import Engine
     from .exchange import Exchange, MAINNET
     from .telegram import Telegram
+    from .discord import Discord, validate_webhook_url
+    from .notifications import periodic_status
 
     load_dotenv(args.env_file)
     config = Config(args.symbol, args.strike, args.quantity, args.slippage_pct)
@@ -64,13 +66,17 @@ async def run(args):
         token, chat = required("TELEGRAM_BOT_TOKEN"), int(required("TELEGRAM_CHAT_ID"))
         if account < 0 or not 3 <= key_index <= 254 or chat <= 0:
             raise ValueError("Invalid account, API key index (3–254), or private Telegram chat ID")
+        discord_url = os.getenv("DISCORD_WEBHOOK_URL", "").strip()
+        if discord_url:
+            validate_webhook_url(discord_url)
         identity = {"network": MAINNET, "account": account, "symbol": args.symbol,
                     "strike": str(config.strike.normalize()), "quantity": str(config.quantity.normalize()),
                     "slippage_pct": str(config.slippage_pct.normalize()), "telegram_chat": chat}
         # One strategy per account, to avoid competing orders.
         suffix = "live" if args.live else "preview"
         state = State(ROOT / ".state" / f"mainnet-{account}-{suffix}.sqlite3", identity,
-                      allow_strike_change=args.live and args.resume)
+                      allow_strike_change=args.live and args.resume,
+                      discord_enabled=bool(discord_url))
         signer = None
         tasks = []
         try:
@@ -99,7 +105,10 @@ async def run(args):
             for sig in (signal.SIGINT, signal.SIGTERM):
                 loop.add_signal_handler(sig, shutdown.set)
             try:
-                tasks = [asyncio.create_task(telegram.deliver())]
+                tasks = [asyncio.create_task(telegram.deliver()),
+                         asyncio.create_task(periodic_status(state, engine))]
+                if discord_url:
+                    tasks.append(asyncio.create_task(Discord(session, discord_url, state).deliver()))
                 state.event(f"Started {'LIVE MAINNET' if args.live else 'READ ONLY'} {args.symbol}. "
                             f"Quantity {args.quantity}; buy {buy.trigger}; sell {sell.trigger}; "
                             f"slippage {args.slippage_pct}%.")

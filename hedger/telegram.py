@@ -1,10 +1,8 @@
-"""Send-only Telegram status updates and retryable alerts."""
+"""Send-only Telegram delivery of retryable notifications."""
 import asyncio
 import logging
-import time
 
 log = logging.getLogger(__name__)
-STATUS_INTERVAL_SECONDS = 15 * 60
 
 
 class Telegram:
@@ -26,12 +24,8 @@ class Telegram:
         return data["result"]
 
     async def deliver(self):
-        next_status = time.monotonic() + STATUS_INTERVAL_SECONDS
         while True:
             try:
-                if time.monotonic() >= next_status:
-                    self.state.event(self.engine.summary())
-                    next_status = time.monotonic() + STATUS_INTERVAL_SECONDS
                 outbox = self.state.data["outbox"]
                 if outbox:
                     await self.call("sendMessage", {"chat_id": self.chat_id, "text": outbox[0][:4000]})

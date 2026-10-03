@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 class State:
-    def __init__(self, path, identity, *, allow_strike_change=False):
+    def __init__(self, path, identity, *, allow_strike_change=False, discord_enabled=False):
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.lock = open(str(path) + ".lock", "a")
@@ -37,6 +37,9 @@ class State:
                              "keep all other parameters unchanged and preserve saved state.")
         if changed and not pending:
             self.data["strike_change"] = {"identity": dict(identity), "cancel_requested": False}
+        self.discord_enabled = discord_enabled
+        # Legacy alerts remain Telegram-only; never copy the existing outbox.
+        self.data.setdefault("discord_outbox", [])
         self.data.pop("telegram_offset", None)
         self.save()
 
@@ -46,6 +49,10 @@ class State:
 
     def event(self, text):
         self.data["outbox"].append(text)
+        if self.discord_enabled:
+            text = text[:4000]  # Match Telegram's existing message cap.
+            self.data["discord_outbox"].extend(
+                text[start:start + 2000] for start in range(0, len(text), 2000))
         self.save()
 
     def close(self):

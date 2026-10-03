@@ -89,6 +89,34 @@ account has enough collateral for the selected size. This version runs **one mar
 per account**; use separate subaccounts for
 independent simultaneous strategies.
 
+## Optional Discord notifications
+
+To mirror new Telegram notifications into a private Discord server text channel:
+
+1. Create or select a private text channel and check who can view it.
+2. Open **Edit Channel → Integrations → Webhooks → New Webhook**. Your role needs
+   **Manage Webhooks** permission.
+3. Name it `Lighter Hedger`, select the channel, and copy its webhook URL.
+4. Add `DISCORD_WEBHOOK_URL=your_webhook_url` to your local `.env`, then restart
+   the process using your normal command (including `--resume` when required).
+
+The webhook URL is a secret: do not commit, share, or log it. No Discord bot or
+additional dependency is needed. Leave the setting empty to use Telegram only.
+
+Discord receives startup, order, fill, warning, and 15-minute status messages generated
+while enabled. Alerts already queued before enabling Discord remain Telegram-only.
+Each destination has its own durable queue; an outage in either does not block the
+other or trading. Discord rate-limit responses delay only Discord delivery.
+Removing the setting pauses Discord delivery and stops queuing new Discord messages;
+previously queued Discord messages are retained and delivered when re-enabled.
+Changing the webhook sends any retained Discord backlog to the newly configured channel.
+
+Message text matches Telegram's existing 4,000-character cap, split into up to two
+2,000-character Discord messages. Automatic mentions are disabled. Successfully sent
+chunks are acknowledged individually. A crash or ambiguous network failure after a
+service accepts a message can still cause a duplicate on retry. `--once` does not send
+notifications; use continuous read-only monitoring to check delivery without placing orders.
+
 ## Alerts and shutoff
 
 Telegram is send-only: startup, order, fill, and warning alerts are sent immediately.
@@ -106,7 +134,7 @@ use `--resume` after local review on the next live start. Existing exchange orde
 remain live and can execute after shutdown. Previously saved stop/pause flags remain
 in effect.
 
-Telegram delivery failures do not disable trading. Status updates and immediate alerts
+Telegram and Discord delivery failures do not disable trading. Status updates and immediate alerts
 remain queued locally and retry independently of the trading loop.
 
 Exchange polling defaults to 10 seconds (configurable with `--poll-seconds`, minimum 5).

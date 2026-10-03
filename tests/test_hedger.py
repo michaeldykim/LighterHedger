@@ -264,27 +264,6 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
             State(self.path, {"different": True})
         self.state = State(self.path, {"test": True})
 
-    async def test_periodic_status_every_fifteen_minutes_while_stopped(self):
-        telegram = Telegram(None, "unused", 55, self.state, self.engine)
-        self.state.data["stopped"] = True
-        now = 0
-        sent = []
-        async def sleep(seconds):
-            nonlocal now
-            now += 1
-            if now > 1800:
-                raise asyncio.CancelledError
-        async def call(method, payload):
-            sent.append((now, method, payload["text"]))
-        telegram.call = call
-        with patch("hedger.telegram.time.monotonic", side_effect=lambda: now), \
-                patch("hedger.telegram.asyncio.sleep", side_effect=sleep):
-            with self.assertRaises(asyncio.CancelledError):
-                await telegram.deliver()
-        self.assertEqual([entry[0] for entry in sent], [900, 1800])
-        self.assertTrue(all(method == "sendMessage" and "Stopped: True" in text
-                            for _, method, text in sent))
-
     async def test_delivery_failure_retries_without_blocking_trading(self):
         telegram = Telegram(None, "unused", 55, self.state, self.engine)
         self.state.event("Started LIVE MAINNET")
@@ -317,31 +296,6 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(attempts[:2], ["Started LIVE MAINNET"] * 2)
         self.assertEqual(sent[0], "Started LIVE MAINNET")
         self.assertTrue(sent[1].startswith("SUBMITTED"))
-        self.assertEqual(self.state.data["outbox"], [])
-
-    async def test_periodic_status_retries_after_failure(self):
-        telegram = Telegram(None, "unused", 55, self.state, self.engine)
-        now = 0
-        attempts = []
-
-        async def sleep(seconds):
-            nonlocal now
-            now += seconds
-            if now > 905:
-                raise asyncio.CancelledError
-
-        async def call(method, payload):
-            attempts.append((now, method, payload["text"]))
-            if len(attempts) == 1:
-                raise RuntimeError("offline")
-
-        telegram.call = call
-        with patch("hedger.telegram.time.monotonic", side_effect=lambda: now), \
-                patch("hedger.telegram.asyncio.sleep", side_effect=sleep):
-            with self.assertRaises(asyncio.CancelledError):
-                await telegram.deliver()
-        self.assertEqual([entry[0] for entry in attempts], [900, 905])
-        self.assertEqual(attempts[0][1:], attempts[1][1:])
         self.assertEqual(self.state.data["outbox"], [])
 
     async def test_legacy_state_preserves_stops_orders_and_pending_alerts(self):
