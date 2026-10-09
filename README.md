@@ -233,3 +233,169 @@ the unit tests.
 References: [official Python SDK](https://github.com/elliottech/lighter-python),
 [SDK stop-market example](https://github.com/elliottech/lighter-python/blob/a38b6405f362fc14a562fe7a97df03f3ee756bc1/examples/orders/create_stop_loss_market_order.py),
 [Telegram Bot API](https://core.telegram.org/bots/api).
+
+## Offline historical simulation
+
+The simulator uses the **same `Engine` and trading rules** as the live bot with a
+simulated exchange implementing `ExchangePort` (`snapshot`, `lookup`, `create`).
+The existing `Exchange` remains the live REST/SDK adapter. An injected runtime
+supplies historical time and sequential order IDs; live runs retain real clocks
+and random client IDs. No credentials, exchange requests, Telegram, SDK, or
+third-party packages are needed for simulation. Python 3.11+ works on Windows,
+macOS and Linux; the live runner and its journal still require macOS/Linux.
+
+From the repository folder:
+
+```sh
+python -m hedger.simulate simulation_test
+```
+
+Each folder under `simulations/` is a separate simulation. Its folder name is the
+simulation name, and it contains `config.json` and the daily price ZIPs. A folder
+path can also be supplied, for example `python -m hedger.simulate simulations/simulation_test`.
+All top-level `.zip` files (case-insensitive extension) are discovered automatically
+and ordered by the **first recorded UTC timestamp inside each archive**, regardless
+of directory listing order or filename. Overlapping data is rejected. Strategy
+state continues across file/day boundaries without resetting.
+
+Results are saved directly inside the simulation folder. Each run has a UTC
+timestamp in its output filenames, including microseconds, so previous runs are
+preserved. Generated result files are ignored by Git and are never read as price
+inputs. Each run starts with fresh state independent of live SQLite journals.
+
+The simulation_test config sets strike **$90**, quantity **25 HYPE**, cash **$500**, an existing
+short of **25 HYPE entered at the first dataset price**, zero fees, and a 20% execution
+bound. It runs one strategy tick per recorded price. Its market profile is simulation-only:
+4 price decimals, 2 quantity decimals, and no minimum quantity/notional checks.
+The market ID is a local identifier. These are **not fetched or verified Lighter
+market specifications**; supply exchange metadata in config when needed.
+
+### Configuration
+
+See the [parameter-by-parameter configuration reference](docs/simulation-config.md)
+for units, allowed values, formulas, rounding rules and worked examples for every
+setting, including slippage, fees and position initialization.
+
+Edit `simulations/simulation_test/config.json`. Each config defines exactly one
+simulation through its `strategy`, `account` and `market` sections.
+Set the strike, quantity, starting cash and fees
+directly in those sections. Specify decimal values as strings. For a flat start,
+set `account.initial_position` to `"flat"`. A short starts at the first dataset
+price; there is no entry-price config parameter.
+There is no case list or per-case override system.
+
+The runner validates the config and complete dataset before creating result
+files, then keeps one immutable copy of the observations in memory. Each price
+observation advances one engine, account, clock and order history. There is no
+wall-clock waiting.
+
+The seven supplied ZIPs contain 55,305 observations from October 2 through
+October 8, 2026. The first price is $87.71, which automatically becomes the initial entry price,
+so the simulation starts at $500 equity with no initial unrealized P&L.
+
+### Data and execution
+
+Each daily ZIP must contain exactly one CSV. No extraction is necessary.
+The required header is:
+
+```csv
+timestamp_utc,price_usd,source
+2026-09-30T00:00:00Z,86.09,binance
+```
+
+Timestamps must explicitly use UTC and increase strictly across all input files;
+prices must be finite and positive. Empty files, duplicate/out-of-order timestamps,
+ambiguous archives and invalid config values are rejected rather than repaired.
+
+The simulation **does not wait in real time**. It loops over the dataset and runs
+exactly one strategy tick per row, using that row's timestamp and price. Existing
+orders see the price before the engine runs. There are no extra ticks between
+rows, even across gaps, and closely spaced rows are never skipped. The dataset's
+sampling rate determines the strategy's cadence. There is no `poll_seconds`
+simulation setting; remove that key from older configs. The live bot's separate
+`--poll-seconds` option is unchanged.
+
+Recorded prices serve as both mark and executable prices. A buy triggers at or
+above its threshold; a sell triggers at or below its threshold. Triggered orders
+fill fully at the recorded price if within the inclusive execution bound.
+Otherwise they are canceled, causing the existing strategy to pause after
+reconciliation. Newly submitted orders whose thresholds are already crossed
+execute immediately against the most recent recorded price. A confirmed fill
+is reconciled on that row's strategy tick, and the next leg is submitted on the
+following row. If an order fills immediately during submission, reconciliation
+happens on the next row and the opposite order follows on the row after that.
+These are the existing engine's reconciliation rules. There is no extra tick
+after the final observation.
+
+No between-sample price interpolation, order-book liquidity, partial fills,
+network latency, funding, margin checks or liquidation is modeled. Equity can
+therefore go negative without liquidation. Existing startup/conflict rules still
+apply: for example, flat below the buy trigger waits for an initial short; a
+starting short at/above that trigger pauses.
+
+### Results and accounting
+
+- `actions-<UTC timestamp>.jsonl`: ordered historical timestamps and deterministic sequence/ID
+  values for initialization, submissions, triggers, fills, cancellations, engine
+  events, status changes and completion.
+- `equity-<UTC timestamp>.csv`: initial equity and marks before/after each row's strategy tick,
+  with cash, position, entry price, realized/unrealized P&L, fees and drawdown.
+  Multiple rows can have the same timestamp, distinguished by the `event` column.
+- `results-<UTC timestamp>.json`: simulation name, ordered input filenames,
+  observation count, data fingerprint and performance summary, including the
+  effective config, sources, final position,
+  open orders, any unreconciled order and pause state. A failed/incomplete run has
+  no completed results file; any logs already written are partial.
+
+Results use model version `sampled-price-v3` and report `strategy_ticks`, which
+equals the number of observations. Earlier `sampled-price-v1` outputs used a
+separate polling schedule and can have different outcomes.
+
+For example, `results-20261002T120000000000Z.json` identifies a run started at
+12:00:00 UTC on October 2. All three files for that run share that timestamp.
+
+Cash represents perpetual collateral: opening a short does not add sale proceeds.
+Closing realizes `quantity * (entry price - fill price)`; each simulated fill
+deducts `quantity * fill price * fee_pct / 100`. Initial positions are pre-existing,
+with no simulated entry trade or entry fee. For a flat start, set
+`initial_position` to `"flat"`. Short starts use the first dataset price;
+remove `entry_price` from older configs. The derived value is saved as
+`initial_entry_price` in the results (null when starting flat).
+
+Equity is cash plus unrealized P&L. Replay net P&L is final equity minus initial
+equity, and return uses initial equity as its denominator. Initial unrealized
+P&L is zero, so initial equity equals starting cash. Maximum drawdown is the largest peak-to-trough equity decrease over
+recorded events; percentage drawdown uses the corresponding running peak.
+`trade_count` counts fills (both buys and sells); `closed_trade_count` counts
+completed short positions, including closure of a pre-existing initial short.
+Open positions are valued at the final price and are not forcibly closed.
+
+The same data, config and implementation produce byte-identical result **contents**.
+Only the output filenames carry the wall-clock run timestamp. Financial arithmetic
+uses a fixed 28-digit Decimal context; result contents do not contain wall-clock
+timestamps, execution duration, random IDs or output-directory paths.
+
+The previous single-case CLI remains available for a config with an explicit
+chronologically ordered `data_files` list (plain CSV and ZIP inputs supported):
+
+```sh
+python -m hedger.simulate --config sim_config.example.json --output sim_results/hype-day1
+```
+
+This legacy mode requires a new output directory and writes `actions.jsonl`,
+`equity.csv` and `summary.json`. The root example config covers October 2 only;
+use the folder command to run all seven days with the folder's config.
+
+Simulation tests run without the live dependencies, including on Windows:
+
+```sh
+python -m unittest discover -s tests -p test_simulation.py -v
+python -m unittest discover -s tests -p test_simulation_folder.py -v
+python -m unittest discover -s tests -p test_runtime.py -v
+```
+
+They cover complete strategy cycles, both slippage-cancellation directions,
+immediate execution, accounting and fees, one tick per data row, startup conflicts,
+input validation, no future-price lookahead, repeatability, archive ordering,
+output preservation and the supplied seven-day simulation.
+The full existing suite still requires Unix `fcntl` for the live state journal.
