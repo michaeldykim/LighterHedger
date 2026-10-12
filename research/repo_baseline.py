@@ -34,14 +34,14 @@ def load_asset(folder, asset):
     return minute_prices(rows), manifest
 
 
-def common_segment(series, end=None):
+def common_segment(series, end=None, warmup=370):
     common = set.intersection(*(set(prices) for prices in series.values()))
     if end is not None:
         common = {t for t in common if t <= end}
     if not common:
         raise ValueError('No common timestamps')
     segment = longest_segment({t:1 for t in common})
-    if len(segment) < 371:
+    if len(segment) < warmup+1:
         raise ValueError('Common segment too short for warmup and next-minute entry')
     return {asset:{t:prices[t] for t in segment} for asset,prices in series.items()}
 
@@ -50,6 +50,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--data', type=Path, default=ROOT/'simulations/simulation_test')
     parser.add_argument('--output', type=Path, required=True, help='New output folder; existing folders are never overwritten')
+    parser.add_argument('--move-minutes', type=int, default=5, help='Log-return and target reference lookback')
     parser.add_argument('--capital', type=float, default=1000, help='Starting equity per strategy')
     parser.add_argument('--notional', type=float, default=1000, help='Fixed entry notional; no compounding')
     parser.add_argument('--rules', choices=('all', '120-only', 'expanded'), default='all')
@@ -57,6 +58,8 @@ def main():
     args = parser.parse_args()
     if any(not math.isfinite(v) or v <= 0 for v in (args.capital,args.notional)):
         parser.error('--capital and --notional must be positive finite values')
+    if args.move_minutes <= 0:
+        parser.error('--move-minutes must be positive')
     rules = [('fixed120',120,None),('retrace100_cap120',120,1)]
     if args.rules == 'expanded':
         rules = [(f'fixed{h}',h,None) for h in (120,180,240)] + [
@@ -72,15 +75,15 @@ def main():
     for asset in ASSETS:
         series[asset],manifest=load_asset(args.data.resolve(),asset)
         manifests.append(manifest)
-    series=common_segment(series,end)
+    series=common_segment(series,end,warmup=360+2*args.move_minutes)
     args.output.mkdir(parents=True)
     summaries=[]
     for asset,prices in series.items():
-        scores=signals(prices)
+        scores=signals(prices,move=args.move_minutes)
         for threshold in (2,3):
             for rule,hold,target in rules:
                 s,trades,equity=backtest(prices,scores,threshold,capital=args.capital,notional=args.notional,
-                                       cost_bps=5,hold=hold,target_fraction=target)
+                                       cost_bps=5,hold=hold,target_fraction=target,move=args.move_minutes)
                 s.update(asset=asset,rule=rule)
                 if abs(sum(t['net_pnl'] for t in trades)-(s['final_equity']-args.capital))>1e-7:
                     raise ValueError('P&L reconciliation failure')
@@ -104,7 +107,7 @@ def main():
         segment_policy='Longest contiguous common minute-close segment after optional end cutoff; earliest wins ties',
         assets=manifests,capital_per_strategy=args.capital,fixed_entry_notional=args.notional,cost_bps=5,
         exit_rules=[r[0] for r in rules],
-        move_minutes=5,baseline_returns=360,ddof=1,baseline_excludes_shock=True,
+        move_minutes=args.move_minutes,baseline_returns=360,ddof=1,baseline_excludes_shock=True,
         thresholds=[2,3],entry_delay_minutes=1,target_fill_delay_minutes=1,
         compounding=False,regimes='Each rule is an alternative portfolio, not an additional funded live strategy')
     (args.output/'manifest.json').write_text(json.dumps(metadata,indent=2)+'\n')
@@ -121,7 +124,7 @@ def main():
             text.append(f'| {asset} | {threshold}σ | '+' | '.join(f'{s["final_equity"]:.2f}' for s in group)+' |')
     text+=['','## Interpretation','',
         'Inputs are approximately 10-second price observations, not independently verified exchange trade ticks. Source labels say Binance; instrument type and quote currency remain unverified. Prices are treated as quote units without currency conversion.',
-        'The signal uses completed minute closes (last observation in each minute), not tick crossings. It takes 370 contiguous closes to warm up the five-minute shock and 360-return lagged baseline. Target crossings execute at the following minute close; fixed time exits execute at their scheduled close. Positions are closed at data end, if necessary. See summary.json for forced-exit counts.',
+        f'The signal uses completed minute closes (last observation in each minute), not tick crossings. The shock is a {args.move_minutes}-minute log return, normalized by 360 preceding overlapping {args.move_minutes}-minute returns, with the newest baseline return ending at the shock start. Warmup requires {360+2*args.move_minutes} contiguous closes. Retracement targets refer to the price {args.move_minutes} minutes before the signal. Target crossings execute at the following minute close; fixed time exits execute at their scheduled close. Positions are closed at data end, if necessary. See summary.json for forced-exit counts.',
         'Positions do not overlap within each strategy; new entry opportunities depend on its exit policy. Configurations shown are alternative backtests, not a recommended combined allocation. Costs are assumptions, with no funding, margin, liquidation, liquidity or intraminute extremes. This repeatedly explored short period is not an out-of-sample validation.',
         'The exact inputs, source-code hashes, cutoff, settings and repository revision are recorded in manifest.json. Large generated equity/trade files remain local and ignored by Git.','']
     (args.output/'REPORT.md').write_text('\n'.join(text))

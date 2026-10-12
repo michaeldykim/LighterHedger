@@ -46,7 +46,7 @@ def longest_segment(prices):
 
 
 def backtest(prices, scores, threshold, cost_bps=5, capital=10000, notional=10000, hold=60,
-             target_fraction=None):
+             target_fraction=None, move=5):
     if target_fraction is not None and (not math.isfinite(target_fraction) or target_fraction <= 0):
         raise ValueError('target_fraction must be positive and finite')
     cash = capital
@@ -119,7 +119,7 @@ def backtest(prices, scores, threshold, cost_bps=5, capital=10000, notional=1000
             elif t != times[-1]:
                 pending = dict(signal_time=t, z=z, entry_time=t+timedelta(minutes=1))
                 if target_fraction is not None:
-                    pending['target'] = price-target_fraction*(price-prices[t-timedelta(minutes=5)])
+                    pending['target'] = price-target_fraction*(price-prices[t-timedelta(minutes=move)])
     if pending:
         canceled += 1
     pnl = [r['net_pnl'] for r in trades]

@@ -1,5 +1,8 @@
 # Baseline rerun on repository sampled-price data
 
+The latest signal-duration experiment is the [one-hour comparison](HOUR_SIGNAL.md).
+The tables below and EXPANDED_EXITS.md retain the earlier five-minute signal.
+
 See [expanded 120/180/240-minute and 100/150/200% target comparison](EXPANDED_EXITS.md)
 for the latest full-window experiment at 10,000 capital and fixed notional.
 

@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta, timezone
+import math
+import statistics
 import unittest
 from research.short_backtest import backtest, signals, longest_segment
 
@@ -120,6 +122,26 @@ class ShortBacktestTests(unittest.TestCase):
         for invalid in (0,-1,float('nan'),float('inf')):
             with self.assertRaises(ValueError):
                 backtest(prices,{},2,target_fraction=invalid)
+
+    def test_hour_signal_warmup_and_exclusion_of_current_hour(self):
+        prices={self.t(k):100+(k%7)*.01 for k in range(480)}
+        prices[self.t(479)]=102
+        scores=signals(prices,move=60)
+        self.assertEqual(list(scores),[self.t(479)])
+        history=[math.log(prices[self.t(k)]/prices[self.t(k-60)])
+                 for k in range(60,420)]
+        shock=math.log(prices[self.t(479)]/prices[self.t(419)])
+        expected=(shock-statistics.mean(history))/statistics.stdev(history)
+        self.assertAlmostEqual(scores[self.t(479)][0],expected)
+
+    def test_hour_target_uses_hour_start_not_five_minute_start(self):
+        prices={self.t(k):102 for k in range(70)}
+        prices[self.t(0)]=100
+        prices[self.t(63)]=100
+        _,trades,_=backtest(prices,{self.t(60):(3,.02)},2,
+                            hold=240,target_fraction=1,move=60)
+        self.assertEqual(trades[0]['target_price'],100)
+        self.assertEqual(trades[0]['exit_time'],self.t(64).isoformat())
 
     def test_signal_prefix_is_unchanged_by_future_data(self):
         prices={self.t(k):100+(k%3)*.01+(1 if k==40 else 0) for k in range(100)}

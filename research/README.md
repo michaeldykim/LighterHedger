@@ -29,6 +29,17 @@ python3 research/repo_baseline.py --capital 10000 --notional 10000 --rules expan
 A retracement beyond 100% targets a price below the original five-minute move's
 starting price. See [expanded exit results](baselines/EXPANDED_EXITS.md).
 
+To use a one-hour log-return signal and hour-based retracement targets:
+
+```sh
+python3 research/repo_baseline.py --move-minutes 60 --capital 10000 --notional 10000 --rules expanded --output research/runs/hour-wide
+```
+
+`--move-minutes` defaults to 5. The volatility baseline stays at 360 historical
+returns of the selected duration, sampled every minute, excluding the current
+move. Warmup is `360 + 2 × move_minutes` contiguous closes: 480 for an hour.
+Retracement targets use the same selected duration. See [one-hour results](baselines/HOUR_SIGNAL.md).
+
 Capital and notional are independent positive finite settings. Defaults remain
 1,000 each; `--rules all` includes the fixed-60 comparator. These are research
 run parameters, not changes to the six agreed live implementation budgets.
