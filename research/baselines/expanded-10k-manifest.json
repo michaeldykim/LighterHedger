@@ -1,8 +1,8 @@
 {
   "model": "minute-close-short-v1",
-  "repository_revision": "bba16fb92330579a3bfa523ba880b633a6d63616",
+  "repository_revision": "cf9c21e1b5a2cfa966b0eb4263e6d712bd5e8fdf",
   "source_sha256": {
-    "research/repo_baseline.py": "8a58fff741041880ddb1de3832128e632c14c43eca37cad3852f33e65fa6bd58",
+    "research/repo_baseline.py": "96697688936c6c90fbeb08bbba34ee9ddec196390eac6a0922c4284fadb5bb5b",
     "research/short_backtest.py": "98daaa0eeff6b4d9e17f2ed481277a81374fafb1122990caa6a81b88f96702e4",
     "research/reversal_study.py": "efb2756ef9935523f92dc59b7cda37dfaf6124e36ac4bdc6227c3cf0ae83da50",
     "hedger/sim_input.py": "dccd937c3e309e1ab12ddfc37c08a00a56ec862a02e1469bab5ea5790519efde",
@@ -198,15 +198,15 @@
     "fixed120",
     "fixed180",
     "fixed240",
-    "retrace100_cap120",
     "retrace150_cap120",
     "retrace200_cap120",
-    "retrace100_cap180",
+    "retrace300_cap120",
     "retrace150_cap180",
     "retrace200_cap180",
-    "retrace100_cap240",
+    "retrace300_cap180",
     "retrace150_cap240",
-    "retrace200_cap240"
+    "retrace200_cap240",
+    "retrace300_cap240"
   ],
   "move_minutes": 5,
   "baseline_returns": 360,

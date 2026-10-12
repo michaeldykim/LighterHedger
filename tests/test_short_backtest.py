@@ -96,7 +96,7 @@ class ShortBacktestTests(unittest.TestCase):
             self.assertAlmostEqual(large['return_pct'],small['return_pct'])
 
     def test_extended_retracement_targets_below_original_price(self):
-        for fraction,target in ((1.5,99),(2,98)):
+        for fraction,target in ((1.5,99),(2,98),(3,96)):
             prices={self.t(k):102 for k in range(15)}
             prices[self.t(0)]=100
             prices[self.t(7)]=100

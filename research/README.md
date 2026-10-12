@@ -20,7 +20,7 @@ For the full-window 10,000-capital / 10,000-notional comparison focused on
 python3 research/repo_baseline.py --capital 10000 --notional 10000 --rules 120-only --output research/runs/extended-10k-120
 ```
 
-For all fixed 120/180/240-minute holds and 100/150/200% targets with each limit:
+For all fixed 120/180/240-minute holds and 150/200/300% targets with each limit:
 
 ```sh
 python3 research/repo_baseline.py --capital 10000 --notional 10000 --rules expanded --output research/runs/expanded-10k
