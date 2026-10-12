@@ -95,6 +95,32 @@ class ShortBacktestTests(unittest.TestCase):
                 self.assertAlmostEqual(large[field],10*small[field])
             self.assertAlmostEqual(large['return_pct'],small['return_pct'])
 
+    def test_extended_retracement_targets_below_original_price(self):
+        for fraction,target in ((1.5,99),(2,98)):
+            prices={self.t(k):102 for k in range(15)}
+            prices[self.t(0)]=100
+            prices[self.t(7)]=100
+            prices[self.t(8)]=target
+            prices[self.t(9)]=target+.5
+            _,trades,_=backtest(prices,{self.t(5):(3,.02)},2,hold=240,
+                                target_fraction=fraction)
+            self.assertEqual(trades[0]['target_price'],target)
+            self.assertEqual(trades[0]['target_trigger_time'],self.t(8).isoformat())
+            self.assertEqual(trades[0]['exit_time'],self.t(9).isoformat())
+            self.assertEqual(trades[0]['exit_price'],target+.5)
+
+    def test_longer_holding_deadlines_and_invalid_targets(self):
+        prices={self.t(k):102 for k in range(250)}
+        prices[self.t(0)]=100
+        for hold in (180,240):
+            _,trades,_=backtest(prices,{self.t(5):(3,.02)},2,hold=hold,
+                                target_fraction=2)
+            self.assertEqual(trades[0]['held_minutes'],hold)
+            self.assertEqual(trades[0]['exit_reason'],'time_exit')
+        for invalid in (0,-1,float('nan'),float('inf')):
+            with self.assertRaises(ValueError):
+                backtest(prices,{},2,target_fraction=invalid)
+
     def test_signal_prefix_is_unchanged_by_future_data(self):
         prices={self.t(k):100+(k%3)*.01+(1 if k==40 else 0) for k in range(100)}
         full=signals(prices,window=20)

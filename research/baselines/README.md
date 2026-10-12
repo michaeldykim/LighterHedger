@@ -1,5 +1,8 @@
 # Baseline rerun on repository sampled-price data
 
+See [expanded 120/180/240-minute and 100/150/200% target comparison](EXPANDED_EXITS.md)
+for the latest full-window experiment at 10,000 capital and fixed notional.
+
 Data revision: `75be83d` (BTC/ETH additions and October 9–11 extension).
 Source code SHA-256 and full input hashes/settings are in the two manifests.
 Each strategy starts with 1,000 quote units, uses fixed 1,000 notional, one short

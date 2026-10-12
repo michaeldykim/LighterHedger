@@ -20,6 +20,15 @@ For the full-window 10,000-capital / 10,000-notional comparison focused on
 python3 research/repo_baseline.py --capital 10000 --notional 10000 --rules 120-only --output research/runs/extended-10k-120
 ```
 
+For all fixed 120/180/240-minute holds and 100/150/200% targets with each limit:
+
+```sh
+python3 research/repo_baseline.py --capital 10000 --notional 10000 --rules expanded --output research/runs/expanded-10k
+```
+
+A retracement beyond 100% targets a price below the original five-minute move's
+starting price. See [expanded exit results](baselines/EXPANDED_EXITS.md).
+
 Capital and notional are independent positive finite settings. Defaults remain
 1,000 each; `--rules all` includes the fixed-60 comparator. These are research
 run parameters, not changes to the six agreed live implementation budgets.

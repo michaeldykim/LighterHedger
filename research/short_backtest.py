@@ -47,8 +47,8 @@ def longest_segment(prices):
 
 def backtest(prices, scores, threshold, cost_bps=5, capital=10000, notional=10000, hold=60,
              target_fraction=None):
-    if target_fraction is not None and not 0 < target_fraction <= 1:
-        raise ValueError('target_fraction must be in (0, 1]')
+    if target_fraction is not None and (not math.isfinite(target_fraction) or target_fraction <= 0):
+        raise ValueError('target_fraction must be positive and finite')
     cash = capital
     position = pending = None
     previous_z = None

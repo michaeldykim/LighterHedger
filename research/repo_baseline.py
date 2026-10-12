@@ -52,12 +52,15 @@ def main():
     parser.add_argument('--output', type=Path, required=True, help='New output folder; existing folders are never overwritten')
     parser.add_argument('--capital', type=float, default=1000, help='Starting equity per strategy')
     parser.add_argument('--notional', type=float, default=1000, help='Fixed entry notional; no compounding')
-    parser.add_argument('--rules', choices=('all', '120-only'), default='all')
+    parser.add_argument('--rules', choices=('all', '120-only', 'expanded'), default='all')
     parser.add_argument('--end', help='Inclusive UTC minute-close cutoff, e.g. 2026-10-09T00:00:00Z')
     args = parser.parse_args()
     if any(not math.isfinite(v) or v <= 0 for v in (args.capital,args.notional)):
         parser.error('--capital and --notional must be positive finite values')
     rules = [('fixed120',120,None),('retrace100_cap120',120,1)]
+    if args.rules == 'expanded':
+        rules = [(f'fixed{h}',h,None) for h in (120,180,240)] + [
+            (f'retrace{int(f*100)}_cap{h}',h,f) for h in (120,180,240) for f in (1,1.5,2)]
     if args.rules == 'all':
         rules.insert(0,('fixed60',60,None))
     end = datetime.fromisoformat(args.end.replace('Z','+00:00')) if args.end else None
@@ -110,8 +113,8 @@ def main():
     text=['# Repository minute-close baseline','',
           f'Common interval: {metadata["primary_start"]} to {metadata["primary_end"]}, including warmup.',
           f'Each independent strategy starts with {args.capital:,.0f} quote units, uses fixed {args.notional:,.0f} entry notional and 5 bps round-trip costs. No compounding.','',
-          '| Asset | Threshold | '+('Fixed 60 ending equity | ' if args.rules=='all' else '')+'Fixed 120 ending equity | Full retracement / 120 ending equity |',
-          '|---|---:|'+('---:|' if args.rules=='all' else '')+'---:|---:|']
+          '| Asset | Threshold | '+' | '.join(r[0] for r in rules)+' |',
+          '|---|---:|'+'---:|'*len(rules)]
     for asset in ASSETS:
         for threshold in (2,3):
             group=[s for s in summaries if s['asset']==asset and s['threshold']==threshold]
