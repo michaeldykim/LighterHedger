@@ -52,7 +52,7 @@ def main():
         for k in (2,3):
             text.append(f'| {asset} {k}σ | '+' | '.join(f'{statistics.median(r["final_equity"] for r in rows[m] if r["asset"]==asset and r["threshold"]==k):,.2f}' for m in (5,10,15))+' |')
     for move in (5,10,15):
-        text+=[f'','## {move}-minute signal: all exit configurations','']
+        text+=['',f'## {move}-minute signal: all exit configurations','']
         for cap in (120,180,240):
             text += [f'### {cap}-minute exit limit','', '| Strategy | Fixed hold | 100% | 150% | 200% | 250% | 300% |','|---|---:|---:|---:|---:|---:|---:|']
             for asset in ('BTC','ETH','HYPE'):

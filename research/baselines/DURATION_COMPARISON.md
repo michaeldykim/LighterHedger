@@ -48,7 +48,7 @@ This is a descriptive sensitivity grid, not 108 independent observations or a po
 | HYPE 2σ | 10,089.32 | 10,082.70 | 9,710.99 |
 | HYPE 3σ | 10,147.98 | 10,303.90 | 10,097.72 |
 
-## {move}-minute signal: all exit configurations
+## 5-minute signal: all exit configurations
 
 ### 120-minute exit limit
 
@@ -84,7 +84,7 @@ This is a descriptive sensitivity grid, not 108 independent observations or a po
 | HYPE 3σ | 10,072.01 | 10,331.81 | 10,263.65 | 10,211.09 | 10,140.24 | 9,995.51 |
 
 
-## {move}-minute signal: all exit configurations
+## 10-minute signal: all exit configurations
 
 ### 120-minute exit limit
 
@@ -120,7 +120,7 @@ This is a descriptive sensitivity grid, not 108 independent observations or a po
 | HYPE 3σ | 10,329.07 | 10,125.42 | 10,529.79 | 10,628.99 | 10,602.11 | 10,599.17 |
 
 
-## {move}-minute signal: all exit configurations
+## 15-minute signal: all exit configurations
 
 ### 120-minute exit limit
 
