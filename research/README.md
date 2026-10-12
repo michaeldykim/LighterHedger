@@ -39,7 +39,9 @@ trade/equity files for each asset/threshold/exit policy. Manifest hashes identif
 input archives and calculation source code, including uncommitted changes;
 `repository_revision` alone is not a claim of a clean source snapshot. New runs
 are local artifacts. See [checked-in baseline results](baselines/README.md) for
-the original-window and extended-window comparison against the new inputs.
+the full-window comparison through October 11 first, followed by the earlier
+window through October 8. The full-window endpoint October 12 00:00 UTC labels
+the close of October 11’s final minute, not an additional day of data.
 
 Large generated files and downloaded duplicate datasets are ignored. The
 repository's already tracked sampled-price ZIPs remain the authoritative inputs;

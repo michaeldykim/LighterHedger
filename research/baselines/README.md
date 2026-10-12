@@ -5,22 +5,18 @@ Source code SHA-256 and full input hashes/settings are in the two manifests.
 Each strategy starts with 1,000 quote units, uses fixed 1,000 notional, one short
 at a time, and assumed 5 bps round-trip costs. No compounding or live orders.
 
-## Original window
+**Primary comparison: all available data through October 11, 2026 (UTC).**
+Raw files cover October 2 00:00:00 through October 11 23:59:50 for BTC, ETH
+and HYPE: 81,225 observations per asset. All 30 input archive hashes were
+rechecked against the full-window manifest.
 
-Common interval: 2026-10-02T21:13:00+00:00 to 2026-10-09T00:00:00+00:00, including warmup.
-Each independent strategy starts with 1,000 quote units, uses fixed 1,000 entry notional and 5 bps round-trip costs. No compounding.
+The primary backtest uses the longest common uninterrupted segment, starting
+October 2 at 21:13 UTC, followed by volatility warmup. Earlier October 2 data
+are excluded because of the shared approximately 14.4-hour outage. No prices
+are interpolated across it. **October 12 00:00 UTC is the close label for
+October 11's final minute; no October 12 raw data are included.**
 
-| Asset | Threshold | Fixed 60 ending equity | Fixed 120 ending equity | Full retracement / 120 ending equity |
-|---|---:|---:|---:|---:|
-| BTC | 2σ | 1022.57 | 1028.28 | 1026.52 |
-| BTC | 3σ | 1001.61 | 1026.41 | 1009.33 |
-| ETH | 2σ | 1040.78 | 1060.55 | 1004.81 |
-| ETH | 3σ | 1000.67 | 1043.00 | 1012.50 |
-| HYPE | 2σ | 1047.73 | 1056.68 | 1065.61 |
-| HYPE | 3σ | 1027.65 | 996.29 | 1058.78 |
-
-
-## Extended window
+## Full available window — through October 11
 
 Common interval: 2026-10-02T21:13:00+00:00 to 2026-10-12T00:00:00+00:00, including warmup.
 Each independent strategy starts with 1,000 quote units, uses fixed 1,000 entry notional and 5 bps round-trip costs. No compounding.
@@ -33,6 +29,21 @@ Each independent strategy starts with 1,000 quote units, uses fixed 1,000 entry 
 | ETH | 3σ | 983.97 | 1024.70 | 995.32 |
 | HYPE | 2σ | 992.56 | 996.01 | 1013.01 |
 | HYPE | 3σ | 997.44 | 977.40 | 1032.49 |
+
+
+## Earlier comparison — through October 8
+
+Common interval: 2026-10-02T21:13:00+00:00 to 2026-10-09T00:00:00+00:00, including warmup.
+Each independent strategy starts with 1,000 quote units, uses fixed 1,000 entry notional and 5 bps round-trip costs. No compounding.
+
+| Asset | Threshold | Fixed 60 ending equity | Fixed 120 ending equity | Full retracement / 120 ending equity |
+|---|---:|---:|---:|---:|
+| BTC | 2σ | 1022.57 | 1028.28 | 1026.52 |
+| BTC | 3σ | 1001.61 | 1026.41 | 1009.33 |
+| ETH | 2σ | 1040.78 | 1060.55 | 1004.81 |
+| ETH | 3σ | 1000.67 | 1043.00 | 1012.50 |
+| HYPE | 2σ | 1047.73 | 1056.68 | 1065.61 |
+| HYPE | 3σ | 1027.65 | 996.29 | 1058.78 |
 
 
 ## What changed
