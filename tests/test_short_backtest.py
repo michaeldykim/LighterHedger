@@ -143,6 +143,15 @@ class ShortBacktestTests(unittest.TestCase):
         self.assertEqual(trades[0]['target_price'],100)
         self.assertEqual(trades[0]['exit_time'],self.t(64).isoformat())
 
+    def test_four_sigma_requires_its_own_upward_crossing(self):
+        prices={self.t(k):102 for k in range(15)}
+        scores={self.t(5):(3.9,.01),self.t(6):(4,.02),self.t(7):(4.2,.02)}
+        _,trades,_=backtest(prices,scores,4,hold=3)
+        self.assertEqual(len(trades),1)
+        self.assertEqual(trades[0]['signal_time'],self.t(6).isoformat())
+        self.assertEqual(trades[0]['entry_time'],self.t(7).isoformat())
+        self.assertEqual(trades[0]['exit_time'],self.t(10).isoformat())
+
     def test_signal_prefix_is_unchanged_by_future_data(self):
         prices={self.t(k):100+(k%3)*.01+(1 if k==40 else 0) for k in range(100)}
         full=signals(prices,window=20)

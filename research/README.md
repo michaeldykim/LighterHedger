@@ -1,7 +1,7 @@
 # Offline sigma-reversal research
 
 See the latest [5/10/15-minute duration comparison](baselines/DURATION_COMPARISON.md)
-for a paired exit-grid assessment. Reproduce it with the commands in that report
+for a paired exit-grid assessment including 2σ, 3σ and 4σ. Reproduce it with the commands in that report
 and `python3 research/duration_comparison.py`.
 
 This directory is independent of the live fixed-strike hedger. It does not read
@@ -39,6 +39,7 @@ To use a one-hour log-return signal and hour-based retracement targets:
 python3 research/repo_baseline.py --move-minutes 60 --capital 10000 --notional 10000 --rules expanded --output research/runs/hour-wide
 ```
 
+`--thresholds 2 3 4` adds 4σ (default thresholds remain 2 and 3).
 `--move-minutes` defaults to 5. The volatility baseline stays at 360 historical
 returns of the selected duration, sampled every minute, excluding the current
 move. Warmup is `360 + 2 × move_minutes` contiguous closes: 480 for an hour.

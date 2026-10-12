@@ -1,8 +1,8 @@
 {
   "model": "minute-close-short-v1",
-  "repository_revision": "aac709fa7fd99a3cb2e4da7605104028f50936ef",
+  "repository_revision": "89ee038c7a4cf05b1526132fc2ee9cbf2372415d",
   "source_sha256": {
-    "research/repo_baseline.py": "7776d48298eff9d497fd461ab6b562f0bc6de7fd7f716eaa5ef161573949a023",
+    "research/repo_baseline.py": "e25238ccd253027517bcb78f77bafdaad82ce02f719f8e134aa7be1df4f881d0",
     "research/short_backtest.py": "31ea09a7d90bc0765d4e533ef9fa9a12133d37a213e1ae73a21f02c6e916e86e",
     "research/reversal_study.py": "efb2756ef9935523f92dc59b7cda37dfaf6124e36ac4bdc6227c3cf0ae83da50",
     "hedger/sim_input.py": "dccd937c3e309e1ab12ddfc37c08a00a56ec862a02e1469bab5ea5790519efde",
@@ -220,7 +220,8 @@
   "baseline_excludes_shock": true,
   "thresholds": [
     2,
-    3
+    3,
+    4
   ],
   "entry_delay_minutes": 1,
   "target_fill_delay_minutes": 1,

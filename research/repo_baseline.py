@@ -50,6 +50,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--data', type=Path, default=ROOT/'simulations/simulation_test')
     parser.add_argument('--output', type=Path, required=True, help='New output folder; existing folders are never overwritten')
+    parser.add_argument('--thresholds', type=int, nargs='+', choices=(2,3,4), default=[2,3])
     parser.add_argument('--move-minutes', type=int, default=5, help='Log-return and target reference lookback')
     parser.add_argument('--capital', type=float, default=1000, help='Starting equity per strategy')
     parser.add_argument('--notional', type=float, default=1000, help='Fixed entry notional; no compounding')
@@ -80,7 +81,7 @@ def main():
     summaries=[]
     for asset,prices in series.items():
         scores=signals(prices,move=args.move_minutes)
-        for threshold in (2,3):
+        for threshold in sorted(set(args.thresholds)):
             for rule,hold,target in rules:
                 s,trades,equity=backtest(prices,scores,threshold,capital=args.capital,notional=args.notional,
                                        cost_bps=5,hold=hold,target_fraction=target,move=args.move_minutes)
@@ -108,7 +109,7 @@ def main():
         assets=manifests,capital_per_strategy=args.capital,fixed_entry_notional=args.notional,cost_bps=5,
         exit_rules=[r[0] for r in rules],
         move_minutes=args.move_minutes,baseline_returns=360,ddof=1,baseline_excludes_shock=True,
-        thresholds=[2,3],entry_delay_minutes=1,target_fill_delay_minutes=1,
+        thresholds=sorted(set(args.thresholds)),entry_delay_minutes=1,target_fill_delay_minutes=1,
         compounding=False,regimes='Each rule is an alternative portfolio, not an additional funded live strategy')
     (args.output/'manifest.json').write_text(json.dumps(metadata,indent=2)+'\n')
     (args.output/'summary.json').write_text(json.dumps(summaries,indent=2)+'\n')
@@ -119,7 +120,7 @@ def main():
           '| Asset | Threshold | '+' | '.join(r[0] for r in rules)+' |',
           '|---|---:|'+'---:|'*len(rules)]
     for asset in ASSETS:
-        for threshold in (2,3):
+        for threshold in sorted(set(args.thresholds)):
             group=[s for s in summaries if s['asset']==asset and s['threshold']==threshold]
             text.append(f'| {asset} | {threshold}σ | '+' | '.join(f'{s["final_equity"]:.2f}' for s in group)+' |')
     text+=['','## Interpretation','',
