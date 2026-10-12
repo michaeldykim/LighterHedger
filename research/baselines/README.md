@@ -16,7 +16,22 @@ are excluded because of the shared approximately 14.4-hour outage. No prices
 are interpolated across it. **October 12 00:00 UTC is the close label for
 October 11's final minute; no October 12 raw data are included.**
 
-## Full available window — through October 11
+## Full window at 10,000 capital and notional — 120-minute exits
+
+Common interval: 2026-10-02T21:13:00+00:00 to 2026-10-12T00:00:00+00:00, including warmup.
+Each independent strategy starts with 10,000 quote units, uses fixed 10,000 entry notional and 5 bps round-trip costs. No compounding.
+
+| Asset | Threshold | Fixed 120 ending equity | Full retracement / 120 ending equity |
+|---|---:|---:|---:|
+| BTC | 2σ | 9996.28 | 10017.22 |
+| BTC | 3σ | 10061.05 | 9893.33 |
+| ETH | 2σ | 10457.05 | 9816.90 |
+| ETH | 3σ | 10247.04 | 9953.15 |
+| HYPE | 2σ | 9960.06 | 10130.06 |
+| HYPE | 3σ | 9774.00 | 10324.86 |
+
+
+## Full available window at 1,000 — through October 11
 
 Common interval: 2026-10-02T21:13:00+00:00 to 2026-10-12T00:00:00+00:00, including warmup.
 Each independent strategy starts with 1,000 quote units, uses fixed 1,000 entry notional and 5 bps round-trip costs. No compounding.

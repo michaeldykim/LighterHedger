@@ -4,6 +4,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 import hashlib
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -49,8 +50,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--data', type=Path, default=ROOT/'simulations/simulation_test')
     parser.add_argument('--output', type=Path, required=True, help='New output folder; existing folders are never overwritten')
+    parser.add_argument('--capital', type=float, default=1000, help='Starting equity per strategy')
+    parser.add_argument('--notional', type=float, default=1000, help='Fixed entry notional; no compounding')
+    parser.add_argument('--rules', choices=('all', '120-only'), default='all')
     parser.add_argument('--end', help='Inclusive UTC minute-close cutoff, e.g. 2026-10-09T00:00:00Z')
     args = parser.parse_args()
+    if any(not math.isfinite(v) or v <= 0 for v in (args.capital,args.notional)):
+        parser.error('--capital and --notional must be positive finite values')
+    rules = [('fixed120',120,None),('retrace100_cap120',120,1)]
+    if args.rules == 'all':
+        rules.insert(0,('fixed60',60,None))
     end = datetime.fromisoformat(args.end.replace('Z','+00:00')) if args.end else None
     if end is not None and (end.utcoffset()!=timedelta(0) or end.second or end.microsecond):
         parser.error('--end must specify a UTC minute boundary')
@@ -66,11 +75,11 @@ def main():
     for asset,prices in series.items():
         scores=signals(prices)
         for threshold in (2,3):
-            for rule,hold,target in [('fixed60',60,None),('fixed120',120,None),('retrace100_cap120',120,1)]:
-                s,trades,equity=backtest(prices,scores,threshold,capital=1000,notional=1000,
+            for rule,hold,target in rules:
+                s,trades,equity=backtest(prices,scores,threshold,capital=args.capital,notional=args.notional,
                                        cost_bps=5,hold=hold,target_fraction=target)
                 s.update(asset=asset,rule=rule)
-                if abs(sum(t['net_pnl'] for t in trades)-(s['final_equity']-1000))>1e-7:
+                if abs(sum(t['net_pnl'] for t in trades)-(s['final_equity']-args.capital))>1e-7:
                     raise ValueError('P&L reconciliation failure')
                 if abs(equity[-1]['equity']-s['final_equity'])>1e-7:
                     raise ValueError('Equity reconciliation failure')
@@ -90,7 +99,8 @@ def main():
     metadata=dict(model='minute-close-short-v1',repository_revision=revision,source_sha256=source_hashes,
         primary_start=min(first).isoformat(),primary_end=max(first).isoformat(),minute_closes=len(first),
         segment_policy='Longest contiguous common minute-close segment after optional end cutoff; earliest wins ties',
-        assets=manifests,capital_per_strategy=1000,fixed_entry_notional=1000,cost_bps=5,
+        assets=manifests,capital_per_strategy=args.capital,fixed_entry_notional=args.notional,cost_bps=5,
+        exit_rules=[r[0] for r in rules],
         move_minutes=5,baseline_returns=360,ddof=1,baseline_excludes_shock=True,
         thresholds=[2,3],entry_delay_minutes=1,target_fill_delay_minutes=1,
         compounding=False,regimes='Each rule is an alternative portfolio, not an additional funded live strategy')
@@ -99,9 +109,9 @@ def main():
     write_csv(args.output/'summary.csv',summaries)
     text=['# Repository minute-close baseline','',
           f'Common interval: {metadata["primary_start"]} to {metadata["primary_end"]}, including warmup.',
-          'Each independent strategy starts with 1,000 quote units, uses fixed 1,000 entry notional and 5 bps round-trip costs. No compounding.','',
-          '| Asset | Threshold | Fixed 60 ending equity | Fixed 120 ending equity | Full retracement / 120 ending equity |',
-          '|---|---:|---:|---:|---:|']
+          f'Each independent strategy starts with {args.capital:,.0f} quote units, uses fixed {args.notional:,.0f} entry notional and 5 bps round-trip costs. No compounding.','',
+          '| Asset | Threshold | '+('Fixed 60 ending equity | ' if args.rules=='all' else '')+'Fixed 120 ending equity | Full retracement / 120 ending equity |',
+          '|---|---:|'+('---:|' if args.rules=='all' else '')+'---:|---:|']
     for asset in ASSETS:
         for threshold in (2,3):
             group=[s for s in summaries if s['asset']==asset and s['threshold']==threshold]

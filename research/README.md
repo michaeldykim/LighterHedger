@@ -13,6 +13,17 @@ python3 research/repo_baseline.py --end 2026-10-09T00:00:00Z --output research/r
 python3 research/repo_baseline.py --output research/runs/extended-window
 ```
 
+For the full-window 10,000-capital / 10,000-notional comparison focused on
+120-minute exits:
+
+```sh
+python3 research/repo_baseline.py --capital 10000 --notional 10000 --rules 120-only --output research/runs/extended-10k-120
+```
+
+Capital and notional are independent positive finite settings. Defaults remain
+1,000 each; `--rules all` includes the fixed-60 comparator. These are research
+run parameters, not changes to the six agreed live implementation budgets.
+
 Use a new output directory per run; existing runs are never overwritten. The
 runner selects `*_BTC.csv.zip`, `*_ETH.csv.zip` and `*_HYPE.csv.zip` separately
 from `simulations/simulation_test` (override with `--data`). It validates each
