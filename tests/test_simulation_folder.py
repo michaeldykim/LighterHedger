@@ -158,9 +158,11 @@ class SampleWeekTests(unittest.TestCase):
             folder = Path(tmp) / "simulation_test"
             folder.mkdir()
             original = ROOT / "simulations" / "simulation_test"
-            for path in original.iterdir():
-                if path.suffix.lower() == ".zip" or path.name == "config.json":
-                    shutil.copyfile(path, folder / path.name)
+            # Preserve this seven-day single-asset fixture as the repository
+            # sample directory gains other assets and later dates.
+            names = ["config.json"] + [f"2026-10-{day:02d}_HYPE.csv.zip" for day in range(2, 9)]
+            for name in names:
+                shutil.copyfile(original / name, folder / name)
             process = subprocess.run([sys.executable, "-m", "hedger.simulate", str(folder)],
                                      cwd=ROOT, capture_output=True, text=True)
             self.assertEqual(process.returncode, 0, process.stderr)

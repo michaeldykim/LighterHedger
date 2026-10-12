@@ -1,0 +1,93 @@
+from datetime import datetime, timedelta, timezone
+import unittest
+from research.short_backtest import backtest, signals, longest_segment
+
+
+class ShortBacktestTests(unittest.TestCase):
+    def setUp(self):
+        self.start=datetime(2026,1,1,tzinfo=timezone.utc)
+
+    def t(self,k):
+        return self.start+timedelta(minutes=k)
+
+    def test_delay_quantity_costs_and_marked_drawdown(self):
+        prices={self.t(k):v for k,v in enumerate([100,110,121,99])}
+        s,trades,equity=backtest(prices,{self.t(0):(3.5,.01)},3,5,1000,1000,2)
+        self.assertEqual(len(trades),1)
+        self.assertEqual(trades[0]['entry_price'],110)
+        self.assertEqual(trades[0]['exit_price'],99)
+        self.assertAlmostEqual(s['gross_pnl'],100)
+        self.assertAlmostEqual(s['net_pnl'],99.5)
+        self.assertAlmostEqual(s['max_drawdown'],100.25)
+        self.assertAlmostEqual(equity[-1]['equity'],1099.5)
+        self.assertAlmostEqual(sum(r['net_pnl'] for r in trades),s['net_pnl'])
+
+    def test_negative_shocks_do_not_block_and_open_crossings_are_not_queued(self):
+        prices={self.t(k):100 for k in range(10)}
+        scores={self.t(k):(z,.01 if z>0 else -.01) for k,z in enumerate([-4,3,0,3,3,3,3,0,3,0])}
+        s,trades,_=backtest(prices,scores,2,hold=3)
+        self.assertEqual([r['entry_time'] for r in trades],[self.t(2).isoformat(),self.t(9).isoformat()])
+        self.assertEqual(s['skipped_crossings_while_short'],1)
+        self.assertEqual(trades[-1]['exit_reason'],'end_of_data')
+
+    def test_missing_entry_cancels_and_missing_exit_delays(self):
+        prices={self.t(k):100 for k in [0,2,3,4,8,9]}
+        scores={self.t(0):(3,.01),self.t(2):(0,0),self.t(3):(3,.01)}
+        s,trades,_=backtest(prices,scores,2,hold=2)
+        self.assertEqual(s['canceled_missing_entries'],1)
+        self.assertEqual(trades[0]['entry_time'],self.t(4).isoformat())
+        self.assertEqual(trades[0]['exit_time'],self.t(8).isoformat())
+        self.assertEqual(s['delayed_exits'],1)
+
+    def test_primary_segment_uses_continuity_not_returns(self):
+        prices={self.t(k):100 for k in [0,1,2,10,11,12,13]}
+        self.assertEqual(list(longest_segment(prices)),[self.t(k) for k in [10,11,12,13]])
+
+    def test_target_execution_delay_and_reentry(self):
+        prices={self.t(k):102 for k in range(16)}
+        prices[self.t(0)]=100
+        prices[self.t(4)]=99
+        prices[self.t(8)]=100
+        prices[self.t(9)]=101
+        scores={self.t(5):(3,.02),self.t(6):(0,0),self.t(9):(3,.02)}
+        summary,trades,_=backtest(prices,scores,2,hold=6,target_fraction=1)
+        self.assertEqual(trades[0]['entry_time'],self.t(6).isoformat())
+        self.assertEqual(trades[0]['target_price'],100)
+        self.assertEqual(trades[0]['target_trigger_time'],self.t(8).isoformat())
+        self.assertEqual(trades[0]['exit_time'],self.t(9).isoformat())
+        self.assertEqual(trades[0]['exit_price'],101)
+        self.assertEqual(trades[0]['exit_reason'],'target_exit')
+        self.assertEqual(trades[1]['entry_time'],self.t(10).isoformat())
+        self.assertEqual(summary['target_exits'],1)
+
+    def test_preentry_target_hit_skips_without_cost(self):
+        prices={self.t(k):102 for k in range(10)}
+        prices[self.t(0)]=100
+        prices[self.t(6)]=99
+        summary,trades,_=backtest(prices,{self.t(5):(3,.02)},2,target_fraction=1)
+        self.assertEqual(trades,[])
+        self.assertEqual(summary['target_skipped_entries'],1)
+        self.assertEqual(summary['final_equity'],10000)
+
+    def test_target_timeout_and_final_close(self):
+        prices={self.t(k):102 for k in range(12)}
+        prices[self.t(0)]=100
+        scores={self.t(5):(3,.02)}
+        _,trades,_=backtest(prices,scores,2,hold=3,target_fraction=1)
+        self.assertEqual(trades[0]['exit_time'],self.t(9).isoformat())
+        self.assertEqual(trades[0]['exit_reason'],'time_exit')
+        _,trades,_=backtest(prices,scores,2,hold=120,target_fraction=1)
+        self.assertEqual(trades[0]['exit_reason'],'end_of_data')
+
+    def test_signal_prefix_is_unchanged_by_future_data(self):
+        prices={self.t(k):100+(k%3)*.01+(1 if k==40 else 0) for k in range(100)}
+        full=signals(prices,window=20)
+        prefix={t:p for t,p in prices.items() if t<=self.t(50)}
+        self.assertEqual(signals(prefix,window=20),{t:s for t,s in full.items() if t<=self.t(50)})
+        del prices[self.t(45)]
+        after_gap=signals(prices,window=20)
+        self.assertFalse(any(self.t(45)<t<self.t(75) for t in after_gap))
+
+
+if __name__=='__main__':
+    unittest.main()
