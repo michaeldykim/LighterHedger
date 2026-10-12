@@ -13,3 +13,12 @@ simulations/*/results-*.json
 simulations/*/comparison-*.csv
 simulations/*/actions-*.jsonl
 simulations/*/equity-*.csv
+
+# Reproducible research outputs and externally downloaded duplicate datasets
+research/data/
+research/results/
+research/short_results/
+research/asset_comparison/
+research/exit_results*/
+research/retrace100_portfolio/
+research/runs/

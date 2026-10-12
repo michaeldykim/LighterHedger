@@ -1,0 +1,100 @@
+# Baseline rerun on repository sampled-price data
+
+The latest comparison tests [5-, 10-, and 15-minute log returns](DURATION_COMPARISON.md)
+with the same 18 exits per asset/threshold. Prior experiments remain below.
+
+The latest signal-duration experiment is the [one-hour comparison](HOUR_SIGNAL.md).
+The tables below and EXPANDED_EXITS.md retain the earlier five-minute signal.
+
+See [expanded 120/180/240-minute and 100/150/200% target comparison](EXPANDED_EXITS.md)
+for the latest full-window experiment at 10,000 capital and fixed notional.
+
+Data revision: `75be83d` (BTC/ETH additions and October 9–11 extension).
+Source code SHA-256 and full input hashes/settings are in the two manifests.
+Each strategy starts with 1,000 quote units, uses fixed 1,000 notional, one short
+at a time, and assumed 5 bps round-trip costs. No compounding or live orders.
+
+**Primary comparison: all available data through October 11, 2026 (UTC).**
+Raw files cover October 2 00:00:00 through October 11 23:59:50 for BTC, ETH
+and HYPE: 81,225 observations per asset. All 30 input archive hashes were
+rechecked against the full-window manifest.
+
+The primary backtest uses the longest common uninterrupted segment, starting
+October 2 at 21:13 UTC, followed by volatility warmup. Earlier October 2 data
+are excluded because of the shared approximately 14.4-hour outage. No prices
+are interpolated across it. **October 12 00:00 UTC is the close label for
+October 11's final minute; no October 12 raw data are included.**
+
+## Full window at 10,000 capital and notional — 120-minute exits
+
+Common interval: 2026-10-02T21:13:00+00:00 to 2026-10-12T00:00:00+00:00, including warmup.
+Each independent strategy starts with 10,000 quote units, uses fixed 10,000 entry notional and 5 bps round-trip costs. No compounding.
+
+| Asset | Threshold | Fixed 120 ending equity | Full retracement / 120 ending equity |
+|---|---:|---:|---:|
+| BTC | 2σ | 9996.28 | 10017.22 |
+| BTC | 3σ | 10061.05 | 9893.33 |
+| ETH | 2σ | 10457.05 | 9816.90 |
+| ETH | 3σ | 10247.04 | 9953.15 |
+| HYPE | 2σ | 9960.06 | 10130.06 |
+| HYPE | 3σ | 9774.00 | 10324.86 |
+
+
+## Full available window at 1,000 — through October 11
+
+Common interval: 2026-10-02T21:13:00+00:00 to 2026-10-12T00:00:00+00:00, including warmup.
+Each independent strategy starts with 1,000 quote units, uses fixed 1,000 entry notional and 5 bps round-trip costs. No compounding.
+
+| Asset | Threshold | Fixed 60 ending equity | Fixed 120 ending equity | Full retracement / 120 ending equity |
+|---|---:|---:|---:|---:|
+| BTC | 2σ | 987.25 | 999.63 | 1001.72 |
+| BTC | 3σ | 982.74 | 1006.11 | 989.33 |
+| ETH | 2σ | 1026.38 | 1045.70 | 981.69 |
+| ETH | 3σ | 983.97 | 1024.70 | 995.32 |
+| HYPE | 2σ | 992.56 | 996.01 | 1013.01 |
+| HYPE | 3σ | 997.44 | 977.40 | 1032.49 |
+
+
+## Earlier comparison — through October 8
+
+Common interval: 2026-10-02T21:13:00+00:00 to 2026-10-09T00:00:00+00:00, including warmup.
+Each independent strategy starts with 1,000 quote units, uses fixed 1,000 entry notional and 5 bps round-trip costs. No compounding.
+
+| Asset | Threshold | Fixed 60 ending equity | Fixed 120 ending equity | Full retracement / 120 ending equity |
+|---|---:|---:|---:|---:|
+| BTC | 2σ | 1022.57 | 1028.28 | 1026.52 |
+| BTC | 3σ | 1001.61 | 1026.41 | 1009.33 |
+| ETH | 2σ | 1040.78 | 1060.55 | 1004.81 |
+| ETH | 3σ | 1000.67 | 1043.00 | 1012.50 |
+| HYPE | 2σ | 1047.73 | 1056.68 | 1065.61 |
+| HYPE | 3σ | 1027.65 | 996.29 | 1058.78 |
+
+
+## What changed
+
+The same minute-close signal and order timing were retained. These inputs are
+approximately 10-second observations labeled `binance`, not individual trade
+prints. The exact exchange instrument and quote currency are not independently
+verified. The last observation in each minute is used as its close; target
+crossings execute at the following minute close. No intraminute target behavior
+was introduced.
+
+HYPE original-window results reproduce the earlier portfolio ending balances
+scaled to 1,000. BTC/ETH original-window results differ from the prior Binance
+perpetual candle runs: the input sampling and potentially instrument identity
+are different. Those earlier downloaded data remain archived/local; they are not
+duplicated in this change or presented as directly interchangeable observations.
+
+All three assets share the October 2 outage; the common uninterrupted window
+starts at 21:13 UTC, followed by volatility warmup. The original window ends at
+October 9 00:00 UTC; the extended window ends at October 12 00:00 UTC. Extension
+results materially weaken several earlier apparent edges. This is a descriptive
+rerun, not a held-out validation: the longer portfolios run continuously, and
+end-of-data closure can alter comparisons near the original cutoff.
+
+No funding, exchange lot rounding, margin/liquidation, depth, actual spread or
+execution latency is modeled. Exits use sampled minute prices and costs are
+assumptions. Strategy alternatives must not be added together as one account.
+Generated trade/equity files are ignored by Git and regenerated by the commands
+in the research README. Historical manifests are immutable evidence of these
+runs; future reruns should get new names, not overwrite these results.
