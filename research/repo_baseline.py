@@ -60,7 +60,7 @@ def main():
     rules = [('fixed120',120,None),('retrace100_cap120',120,1)]
     if args.rules == 'expanded':
         rules = [(f'fixed{h}',h,None) for h in (120,180,240)] + [
-            (f'retrace{int(f*100)}_cap{h}',h,f) for h in (120,180,240) for f in (1.5,2,3)]
+            (f'retrace{int(f*100)}_cap{h}',h,f) for h in (120,180,240) for f in (1,1.5,2,2.5,3)]
     if args.rules == 'all':
         rules.insert(0,('fixed60',60,None))
     end = datetime.fromisoformat(args.end.replace('Z','+00:00')) if args.end else None
