@@ -1,5 +1,9 @@
 # Offline sigma-reversal research
 
+See the latest [5/10/15-minute duration comparison](baselines/DURATION_COMPARISON.md)
+for a paired exit-grid assessment. Reproduce it with the commands in that report
+and `python3 research/duration_comparison.py`.
+
 This directory is independent of the live fixed-strike hedger. It does not read
 credentials, submit exchange orders or send notifications. Python 3.11+ standard
 library is sufficient for the new repository-data runner.

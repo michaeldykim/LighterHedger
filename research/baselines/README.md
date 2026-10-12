@@ -1,5 +1,8 @@
 # Baseline rerun on repository sampled-price data
 
+The latest comparison tests [5-, 10-, and 15-minute log returns](DURATION_COMPARISON.md)
+with the same 18 exits per asset/threshold. Prior experiments remain below.
+
 The latest signal-duration experiment is the [one-hour comparison](HOUR_SIGNAL.md).
 The tables below and EXPANDED_EXITS.md retain the earlier five-minute signal.
 

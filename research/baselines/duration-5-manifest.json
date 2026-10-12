@@ -1,0 +1,229 @@
+{
+  "model": "minute-close-short-v1",
+  "repository_revision": "aac709fa7fd99a3cb2e4da7605104028f50936ef",
+  "source_sha256": {
+    "research/repo_baseline.py": "7776d48298eff9d497fd461ab6b562f0bc6de7fd7f716eaa5ef161573949a023",
+    "research/short_backtest.py": "31ea09a7d90bc0765d4e533ef9fa9a12133d37a213e1ae73a21f02c6e916e86e",
+    "research/reversal_study.py": "efb2756ef9935523f92dc59b7cda37dfaf6124e36ac4bdc6227c3cf0ae83da50",
+    "hedger/sim_input.py": "dccd937c3e309e1ab12ddfc37c08a00a56ec862a02e1469bab5ea5790519efde",
+    "hedger/strategy.py": "b6bb44b9456a66b1888aa0f81be7f26c55a381b381d3a1bd6d91793edbe1b3eb"
+  },
+  "primary_start": "2026-10-02T21:13:00+00:00",
+  "primary_end": "2026-10-12T00:00:00+00:00",
+  "minute_closes": 13128,
+  "segment_policy": "Longest contiguous common minute-close segment after optional end cutoff; earliest wins ties",
+  "assets": [
+    {
+      "asset": "BTC",
+      "rows": 81225,
+      "first": "2026-10-02T00:00:00Z",
+      "last": "2026-10-11T23:59:50Z",
+      "source_labels": [
+        "binance"
+      ],
+      "intervals_seconds": {
+        "8.0": 1,
+        "9.0": 4,
+        "10.0": 81214,
+        "11.0": 4,
+        "51762.0": 1
+      },
+      "files": [
+        {
+          "path": "simulations/simulation_test/2026-10-02_BTC.csv.zip",
+          "sha256": "7cf85ce356e9801d8d310e09bd4ac2c750540d53a42fbb5c1d1e214d7c418bda"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-03_BTC.csv.zip",
+          "sha256": "927cbc82bcf7ff0bd5146c242437fd79ec971583909571573f62f5e980a6bf63"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-04_BTC.csv.zip",
+          "sha256": "3c6de1704947f430446c1337999f1247636e9c1d7b3fcfcf76c1c494a8d6d83d"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-05_BTC.csv.zip",
+          "sha256": "d54d3326d5354f6670029be775643c4cae10d3404762fde77ccc085b1934dae0"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-06_BTC.csv.zip",
+          "sha256": "56650ea008885904f8df812580ed0e9b7c95ae4a2a86371cba90cae1f32599db"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-07_BTC.csv.zip",
+          "sha256": "b362659ace703ea3dc5084f5e9c1b809aff522a5bafd437f1abcc5fe653125d2"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-08_BTC.csv.zip",
+          "sha256": "6b68d2027d9926ab6de9c54aa6968c4473ab9f9b96975cb1ee0d051085a101c5"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-09_BTC.csv.zip",
+          "sha256": "c9cbd63220eafa5943c496745d01863b6bd9a141a1f8ee4967b59139f02e5b0a"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-10_BTC.csv.zip",
+          "sha256": "f5a20fba668b99420debdba4698e051061f9acf5ca433a9174667da7c1d4018d"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-11_BTC.csv.zip",
+          "sha256": "6da7dc3693a2867bed4f540dc816c13577ed22e33e2e674011408da75de299f7"
+        }
+      ],
+      "provenance": "Repository price_usd samples labeled binance; exact instrument and quote currency not independently verified."
+    },
+    {
+      "asset": "ETH",
+      "rows": 81225,
+      "first": "2026-10-02T00:00:00Z",
+      "last": "2026-10-11T23:59:50Z",
+      "source_labels": [
+        "binance"
+      ],
+      "intervals_seconds": {
+        "8.0": 1,
+        "9.0": 4,
+        "10.0": 81214,
+        "11.0": 4,
+        "51762.0": 1
+      },
+      "files": [
+        {
+          "path": "simulations/simulation_test/2026-10-02_ETH.csv.zip",
+          "sha256": "545a8a9e50829090c019341b5ed3d5dc29d3d9b8e8201ef18e40035235dca1ce"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-03_ETH.csv.zip",
+          "sha256": "2ac683fdb9e31af4cd66d8d5eea6b52ca16709e031047c370d27f7b03feeefef"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-04_ETH.csv.zip",
+          "sha256": "6830984f1208e4dae5ec9ca68ee4aaf849050800fd18bd92e0a99965ffe56143"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-05_ETH.csv.zip",
+          "sha256": "a43e78c9027dcb7bcd992163bc66e3a4c7e49ba19934340161fe744dcfb70017"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-06_ETH.csv.zip",
+          "sha256": "3b2c06ace780e9c2a832f98d72b14b190e8a613631de169e3ff33350ab52620e"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-07_ETH.csv.zip",
+          "sha256": "e018182cfe9535b521b9a4b82af563082c594ad3ee3aed1cf431a166a67f2a74"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-08_ETH.csv.zip",
+          "sha256": "ed57da2864759df4fb0d8075bdb09c9b7ddcd6f9f60c433c49d78e0dd02cd4f7"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-09_ETH.csv.zip",
+          "sha256": "8b09734a7353ed95757a4ea57a8fa4076f85b49d165c50f66194f7c9e41619db"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-10_ETH.csv.zip",
+          "sha256": "8565d54e4c20c8b8be863f8b3fd1e7fd18af2a433e7cc75c75d9542f564b236a"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-11_ETH.csv.zip",
+          "sha256": "28048795dd4c05b1cbfbc9812463b838065872f4cd26970c39bfede1429b57bf"
+        }
+      ],
+      "provenance": "Repository price_usd samples labeled binance; exact instrument and quote currency not independently verified."
+    },
+    {
+      "asset": "HYPE",
+      "rows": 81225,
+      "first": "2026-10-02T00:00:00Z",
+      "last": "2026-10-11T23:59:50Z",
+      "source_labels": [
+        "binance"
+      ],
+      "intervals_seconds": {
+        "8.0": 1,
+        "9.0": 4,
+        "10.0": 81214,
+        "11.0": 4,
+        "51762.0": 1
+      },
+      "files": [
+        {
+          "path": "simulations/simulation_test/2026-10-02_HYPE.csv.zip",
+          "sha256": "e5ba59e77548f72fb3e0592f9d81cffefe274254ee22774588b2cb2a68f70c0f"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-03_HYPE.csv.zip",
+          "sha256": "e9863d5bccf93bf8c14675f2f063c4b7db97e3f0c4e521a683f382e90a828195"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-04_HYPE.csv.zip",
+          "sha256": "d5406428a214e442b3e19b0a9053d4ecd2ddce7dd22b8ec3d0e8ef356d40316c"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-05_HYPE.csv.zip",
+          "sha256": "648da57858affadfb4c9bac0a9d1a2fe572ebc69434fce67f379a4e82e7dff55"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-06_HYPE.csv.zip",
+          "sha256": "22ddaf1a6166ac862c4003bfe02464a6b8caf923d22be6319713987dd52cb0d3"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-07_HYPE.csv.zip",
+          "sha256": "74127808e4a20087921e7891d2929ba7d1d6c7a7e53a6e9d65d24f34acf6d868"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-08_HYPE.csv.zip",
+          "sha256": "425c7d954ede8034eeb134376dc5b4f69be35a74de3347bfaf4c8fc619d2da9a"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-09_HYPE.csv.zip",
+          "sha256": "e4b5ac179901c1a48eb32bcf78787b0d7f5adfcdb6ff97725299cf922f38eb58"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-10_HYPE.csv.zip",
+          "sha256": "8fe4c2418dd9e7235fbb7ca8b60a282321fe02c3f9e9425680be1037ee2c4b50"
+        },
+        {
+          "path": "simulations/simulation_test/2026-10-11_HYPE.csv.zip",
+          "sha256": "c7f8f4e9687e9ad53b3057c7186b7d75859bdbce065b43b13bcfab4972f706d3"
+        }
+      ],
+      "provenance": "Repository price_usd samples labeled binance; exact instrument and quote currency not independently verified."
+    }
+  ],
+  "capital_per_strategy": 10000.0,
+  "fixed_entry_notional": 10000.0,
+  "cost_bps": 5,
+  "exit_rules": [
+    "fixed120",
+    "fixed180",
+    "fixed240",
+    "retrace100_cap120",
+    "retrace150_cap120",
+    "retrace200_cap120",
+    "retrace250_cap120",
+    "retrace300_cap120",
+    "retrace100_cap180",
+    "retrace150_cap180",
+    "retrace200_cap180",
+    "retrace250_cap180",
+    "retrace300_cap180",
+    "retrace100_cap240",
+    "retrace150_cap240",
+    "retrace200_cap240",
+    "retrace250_cap240",
+    "retrace300_cap240"
+  ],
+  "move_minutes": 5,
+  "baseline_returns": 360,
+  "ddof": 1,
+  "baseline_excludes_shock": true,
+  "thresholds": [
+    2,
+    3
+  ],
+  "entry_delay_minutes": 1,
+  "target_fill_delay_minutes": 1,
+  "compounding": false,
+  "regimes": "Each rule is an alternative portfolio, not an additional funded live strategy"
+}
