@@ -399,3 +399,11 @@ immediate execution, accounting and fees, one tick per data row, startup conflic
 input validation, no future-price lookahead, repeatability, archive ordering,
 output preservation and the supplied seven-day simulation.
 The full existing suite still requires Unix `fcntl` for the live state journal.
+
+## Offline sigma-reversal research
+
+See [research/README.md](research/README.md) for a separate, reproducible
+minute-close analysis of BTC, ETH and HYPE sampled-price archives. It compares
+2σ/3σ short signals and timed/retracement exits without changing the live hedger.
+The research runner filters assets explicitly in the mixed sample-data folder;
+the original simulation CLI still requires a single-asset folder.
